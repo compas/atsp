@@ -1,0 +1,33 @@
+
+set -x
+n=5
+cp ../bp/* .
+for z in 14 15  #15 17 18 19 20 21 22 23 24 25 25
+
+do
+biotr << end
+1D_${z}_5
+1S_${z}_5
+n
+y
+E2
+     
+end
+cp 3P_${z}_5.w I_${z}_5.w
+cp 3P_${z}_5.c I_${z}_5.c
+cp 3P_${z}_5.j I_${z}_5.j
+cp 3P_${z}_5.w F_${z}_5.w
+cp 3P_${z}_5.c F_${z}_5.c
+cp 3P_${z}_5.j F_${z}_5.j
+biotr << end1
+I_${z}_5
+F_${z}_5
+n
+y
+M1
+     
+end1
+mv I_${z}_5.F_${z}_5.lsj 3P_${z}_5.3P_${z}_5.lsj
+done
+rm fort.* *.c *.w *.j
+

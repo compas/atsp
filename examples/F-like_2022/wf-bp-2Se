@@ -1,0 +1,22 @@
+#!/bin/bash
+for z in 22 23 24
+do
+    for i in 3 4 5
+    do
+    cp 2Se-${i}-bp.c 2Se-${i}-${z}-bp.c
+    cp ../MCHF/2Se-${i}-${z}.w 2Se-${i}-${z}-bp.w
+
+bpci << end
+2Se-${i}-${z}-bp, y, n
+n
+n
+1 1
+1
+2
+y
+y
+y
+end
+      done
+done
+rm *.lst 

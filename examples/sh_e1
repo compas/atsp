@@ -1,0 +1,45 @@
+
+set -x
+parity=e
+grp=1
+first_n=3
+
+for LS in 1D 1S 3P
+do 
+
+cp mrlist.${LS}${parity}${grp}.c clist.inp
+cp clist.inp mrlist
+(echo
+
+cp mrlist ${LS}${parity}${grp}.${first_n}.c
+
+for n in  4 5 
+do
+           case $n in
+	   4)  l='f';;
+	   5)  l='g';;
+	   esac
+
+lsgen <<STOP
+e
+ 
+${n}  # highest n
+${l}  # highest l
+y
+2  # Number of excitations
+10000000
+STOP
+
+mv clist.out cfg.inp
+lsreduce
+mv clist.out clist.inp
+lsgen <<EOF 
+r
+EOF
+mv clist.out  ${LS}${parity}${grp}.${n}.c # Includes only CSF's that interact with reference set
+
+cp mrlist clist.inp   # restore clist.inp
+
+  done)
+done
+rm clist.* fort.* cfg.inp

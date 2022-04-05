@@ -1,0 +1,21 @@
+#!/bin/bash
+
+cd gs
+
+mkdir BP
+
+cd BP
+
+         ../.././gen-bp-2Po  # generate Breit-Pauli expansion for ground state
+
+         ../.././wf-bp-2Po   # CI calculation
+
+cd ../../es
+
+mkdir BP
+
+cd BP
+
+          ../.././gen-bp-2Se   # generate Breit-Pauli expansion for excited state
+
+          ../.././wf-bp-2Se     # CI calculation

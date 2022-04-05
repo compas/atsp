@@ -1,0 +1,25 @@
+#!/bin/bash
+cd E2M1_trans
+for z in 22 23 24
+do
+        for i in  3 4 5 
+        do 
+        cp ../../gs/BP/2Po-${i}-${z}-bp.c I-2Po-${i}-${z}.c
+        cp ../../gs/BP/2Po-${i}-${z}-bp.w I-2Po-${i}-${z}.w
+        cp ../../gs/BP/2Po-${i}-${z}-bp.j I-2Po-${i}-${z}.j
+        cp I-2Po-${i}-${z}.c F-2Po-${i}-${z}.c
+        cp I-2Po-${i}-${z}.w F-2Po-${i}-${z}.w
+        cp I-2Po-${i}-${z}.j F-2Po-${i}-${z}.j
+biotr << end
+I-2Po-${i}-${z}
+F-2Po-${i}-${z}
+n
+y
+c
+E2
+M1
+*
+end
+         done
+done
+rm fort.* *.c *.w *.j

@@ -1,0 +1,9 @@
+/opt/hpmpi/bin/mpif90 -o ~/FROM_ACHILLE/atsp2K_cpc/bin/mchf_mpi   \
+-L/u/oscharf/FROM_ACHILLE/atsp2K_cpc/lib alloc_mem.o de.o diff.o \
+dinit.o e.o eijset.o eig_out.o methd1.o nmrvs.o nodec.o orthog.o output.o \
+quad.o scale.o mpi_sintgrl.o search.o summry.o unpacki.o wavefn.o  \
+mpi_mchf_LINUX.o mpi_data.o mpi_diag.o mpi_solve.o mpi_grange.o mpi_scf.o \
+mpi_sum.o mpi_update.o mpi_updatc.o mpi_xch.o mpi_potl.o mpi_dssbmv.o \
+mpi_diag_hmx.o prprty.o mpi_spalcsts_LINUX.o -lrad  -ldvdson -lcom -lrad \
+-lmpiu   -L  -lmtmpi -lpthread -lacml
+

@@ -1,0 +1,2839 @@
+*
+*     ------------------------------------------------------------------
+*       A N A L Y S E_B L K
+*     ------------------------------------------------------------------
+*
+      SUBROUTINE ANALY_BLK(IREAD,IWRITE,NCLOSD,MAXORB,NB,NBsize,list)
+      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+*
+*        This routine analyzes the format of the configuration input
+*        data for the different blocks, determines the number of blocks,
+*        the size of each block, and a consistent ordering of the electrons
+*
+*        NB             - number of blocks
+*        NBsize(1:NB)   - size of each block
+*        Nclosd         - number of closed shells
+*        Maxorb         - number of orther orbitals
+*        List(1:maxorb) - list of orbitals 
+*
+      PARAMETER (NWD=60, NBD=20)
+      CHARACTER LIST(NWD)*3, LINE*72, OF(NWD)*3, EL(8)*3, LINEP*72
+      INTEGER NBSIZE(NBD)
+      POINTER(QAFTER,AFTER((NWD),1))
+      INTEGER AFTER,IEL(8)
+*
+      call alloc(qafter,nwd*nwd,4)
+*
+      DO 2 I = 1,(NWD)
+         DO 3 J = 1,(NWD)
+            AFTER(I,J) = 0
+  3      CONTINUE
+  2   CONTINUE
+*
+* --- Skip header
+*
+      REWIND IREAD
+      READ(IREAD,*)
+      READ(IREAD,'(A72)') Line
+      LINEP = LINE
+*
+*  ---  Determine the number of common closed subshells
+*
+      NCLOSD = 0
+      J = 2
+ 10   IF (LINE(J:J+2) .NE. '   ' ) THEN
+         NCLOSD = NCLOSD + 1
+         J = J+4
+         IF (J .LT. 72) GO TO 10
+      END IF
+*
+*  ---  Determine the number of blocks, configurations in each block
+*       and number of electrons
+*
+*
+      NB = 0
+      MAXORB = 0
+ 15   NCFG=0
+ 20   READ(IREAD,'(A72)',END=55) LINE
+      IF (LINE(1:1) .NE. '*'  ) THEN
+*
+*  ------  A new configuration has been read; find the electrons
+*
+         NCFG = NCFG + 1
+         J = 2
+         I = 0
+ 30      IF (LINE(J:J+2) .NE. '   ' .AND. I.LT.(8)) THEN
+*
+*  --------- An electron has been found; is it a new one?
+*
+            I = I+1
+            EL(I) = LINE(J:J+2)
+            K = 1
+ 40         IF (K .LE. MAXORB) THEN
+               IF ( OF(K) .NE. EL(I) ) THEN
+                  K = K+1
+                  IF (K .GT. (NWD)) THEN
+                     WRITE(IWRITE,*) 'SET NWD Larger: NWD=',NWD
+                     STOP
+                  END IF
+                  GO TO 40
+                 ELSE
+                  IEL(I) = K
+               END IF
+              ELSE
+*
+*  ------------  A new electron has been found; add it to the list
+*
+               MAXORB = K
+               OF(MAXORB) = EL(I)
+               IEL(I) = K
+            END IF
+            J = J+8
+            GO TO 30
+         END IF
+*
+*  ------  Add data to the AFTER matrix
+*
+         DO 50 I1 = 2,I
+            DO 51 I2 = 1,I1-1
+               AFTER(IEL(I1),IEL(I2)) = 1
+ 51         CONTINUE
+ 50      CONTINUE
+         READ(IREAD,*)
+         GO TO 20
+      ELSE
+*       .. we have reached an * indicating the end of the current block
+        NB = NB + 1
+        NBsize(nb) = NCFG
+*       .. skip next two lines (might be end-of-file)
+        READ(IREAD,*,END=55)
+        READ(IREAD, '(A72)',END=55) LINE
+        IF (LINE .ne. LINEP) then
+          WRITE(IWRITE,'(A,I8,A)') 'Closed shells for Block',nb+1,
+     :          'not the same as for first block'
+          STOP
+        END IF
+	GO TO 15
+      END IF
+*
+*  ---  Check if the ordering of the electrons is inconsistent
+*
+ 55   DO 60 I = 1,MAXORB
+         DO 61 J = 1,MAXORB
+            IF (AFTER(I,J) .EQ. 1 .AND. AFTER(J,I) .EQ. 1) THEN
+                WRITE(IWRITE,*) ' The order of ',OF(I),' and ',
+     :                OF(J),' is inconsistent'
+                STOP
+            END IF
+ 61      CONTINUE
+ 60   CONTINUE
+*
+*  ---  Reorder the electrons to satisfy the after relations found
+*         in the different configurations
+*
+      IORD = 1
+ 70   IF (IORD .LE. MAXORB ) THEN
+*
+*  ------  Search for a row with no 1's
+*
+         DO 71 I = 1,MAXORB
+            DO 72 J = 1,MAXORB
+               IF (AFTER(I,J) .EQ. 1 ) GO TO 71
+ 72         CONTINUE
+*
+*  ---------  The current row contains all 0's or 2's
+*
+            IF (AFTER(I,I) .NE. 2 ) THEN
+*
+*  ------------  We have the next electron; delete the corresponding
+*                  rows and columns from the AFTER matrix
+*
+               LIST(IORD) = OF(I)
+               IORD = IORD+1
+               DO 73 J = 1,MAXORB
+                  AFTER(I,J) = 2
+                  AFTER(J,I) = 2
+ 73            CONTINUE
+               GO TO 70
+            END IF
+ 71      CONTINUE
+      END IF
+*
+      call dalloc(qafter,nwd*nwd)
+      RETURN
+      END
+*
+*     ------------------------------------------------------------------
+*       A N G M O M G
+*     ------------------------------------------------------------------
+*
+      SUBROUTINE ANGMOMG(NEW,NZERO,IFIRST)
+      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+      PARAMETER (NWD=60, NWCD=20)
+      PARAMETER (LSDIM=30000)
+*
+      POINTER (qcn,cn(1)),(qinptr,inptr(lsdim)),(qpackn,ipackn(1)),
+     :        (qlused,lused(1)),(qnijptr,nijptr(lsdim)),
+     :        (qjan,jan(lsdim)),(qjbn,jbn(lsdim)),(qico,ico(1)),
+     :        (qintptr,idummy(1)) 
+      COMMON /buffer/qcn,qinptr,qpackn,qlused,qintptr,lmax,qnijptr,
+     :               qjan,qjbn,qico
+      COMMON/INFORM/IREAD,IWRITE,IOUT,ISC(4),IALL,JSC(3),ISCW
+      COMMON/DEBUG/IBUG1,IBUG2,IBUG3,NBUG6,NBUG7,IFULL
+      POINTER  (qjptr, jptr(1))
+      COMMON /fout/n,ntot,idum(6),nrec(8),iflag,lij,nij,qjptr,cf_tot
+      COMMON/DIAGNL/IDIAG,JA,JB
+      CHARACTER*30 FORMAT(3)
+      CHARACTER*1 NCHAR(8)
+      POINTER(QNOC,NOCCSH(1)),(QNELCSH,NELCSH(8,1)),
+     :       (QNOCORB,NOCORB(8,1)),(QJ1,J1QNRD(15,1))
+      POINTER(QIAJCMP,IAJCMP(1)),(QLJCOMP,LJCOMP(1)),
+     :       (QNJCOMP,NJCOMP(1)),(QIAJCLD,IAJCLD(1)),
+     :       (QLJCLSD,LJCLSD(1))
+      COMMON /NDIMS/ QNOC,QNELCSH,QNOCORB,QJ1,NCFG
+      COMMON /NON30/ QIAJCMP,QNJCOMP,QLJCOMP,QIAJCLD,QLJCLSD,MAXORB
+      POINTER(QIORTH,IORTH(1))
+      COMMON/OVRLAP/MU,NU,MUP,NUP,NONORT,NOVLPS,IROWMU,IROWNU,ICOLMU,
+     : ICOLNU,NORTH,IORDER,NCALLS,LMU,LNU,LMUP,LNUP,JMU,JNU,JMUP,JNUP,
+     :     QIORTH
+
+      LOGICAL lused
+*
+      DATA NCHAR/'1','2','3','4','5','6','7','8'/
+      DATA FORMAT/'(2H <,I3,5H |H| ,I2,6H > = <, ',
+     :              '  (A3,1H(,I2,1H)) ,5H |H| ,   ',
+     :                '(A3,1H(,I2,1H)),2H >,/)     '/
+*
+* --- THIS PROGRAMME CONSIDERS EITHER SUPERPOSITION OF CONFIGURATIONS OR
+*     MULTI-CONFIGURATIONAL HARTREE-FOCK WAVE FUNCTIONS.  USING THE
+*     RESULT THAT THE TWO-ELECTRON HAMILTONIAN MATRIX ELEMENT
+*     (PSI/V/PSIP)  CAN BE WRITTEN AS A SUM OF SLATER INTEGRALS, THE
+*     PRESENT CODE  -  WEIGHTS  -  CALCULATES THE COEFFICIENTS OF THESE
+*     INTEGRALS.  PSI AND PSIP ARE ALLOWED TO RUN OVER NCFG CONFIGURATNS
+*
+*
+* --- CONSIDER (PSI/V/PSIP) AS PSI AND PSIP RUN OVER ALL CONFIGURATIONS
+*
+      if (mod(jb,100) .eq. 0) write(ISCW,*) '   jb =',jb
+      NFIRST = NCFG - NEW + 1
+      irow = max(jb,nfirst)
+      if (jb .gt. nzero) then
+        last = jb
+      else
+        last = ncfg
+      end if
+      Do 6 JA = irow, last
+*     DO 6 JA=irow,NCFG
+*     IF (JB .GT. NZERO .AND. IFIRST .EQ. 1 .AND. JA .NE. JB ) GO TO 6
+*     IF (JB.GT.NZERO .AND. JB.LT.NFIRST .AND. IFIRST.EQ.0) GO TO 6
+*     write(ISCW,*) '     ja =',ja
+      IFLAG=0
+      IDIAG=0
+      IF(JA.EQ.JB) IDIAG=1
+      IF (NORTH .NE. 0) THEN
+        WRITE(ISCW,'(A)') ' this prog. com. with orthogonal orbitals'
+        STOP
+      ENDIF
+      N1=NOCCSH(JA)
+      N2=NOCCSH(JB)
+*      IF (IFULL .NE. 0) THEN
+*         FORMAT(2)(2:2) = NCHAR(N1)
+*         FORMAT(2)(30:30) = NCHAR(N2)
+*         WRITE(IWRITE,'(///)')
+*         WRITE(IWRITE,FORMAT) JA,JB,
+*     :        (IAJCMP(NOCORB(J,JA)),NELCSH(J,JA),J=1,N1),
+*     :        (IAJCMP(NOCORB(J,JB)),NELCSH(J,JB),J=1,N2)
+*      END IF
+*
+* --- SET UP DEFINING QUANTUM NUMBERS FOR EACH MATRIX ELEMENT
+*
+C      CALL SETUP(JA,JB)
+      CALL SHELLS(JA,JB,LET)
+      IF(LET.EQ.0) GO TO 6
+      IF(IBUG1.GT.0.OR.IBUG2.GT.0) CALL VIJOUT(JA,JB)
+*
+* --- TEST ON POSSIBLE RECOUPLING ORTHOGONALITY
+*
+      CALL ORTHOGG(LET)
+      IF(LET.EQ.0) GO TO 6
+*
+* --- IF NO SUCH ORTHOGONALITY IS EXHIBITED, CALCULATE WEIGHTS OF SLATER
+*     INTEGRALS
+*
+       CALL NONRELAT
+      IF (IFLAG .NE. 0) then
+        if (lij/lsdim .eq. 1) then
+*          .. a record needs to be written to iout
+           write(iout) lsdim,(jan(i),i=1,lsdim), (ico(i),i=1,lsdim)
+           lij = 0
+        end if
+        NIJ = NIJ + 1
+        LIJ = LIJ + 1
+        jan(lij) = ja
+        jbn(lij) = jb
+        ico(lij) = ntot
+      endif
+    6 CONTINUE
+*
+      END
+*     ------------------------------------------------------------------
+*       C F G B L K
+*     ------------------------------------------------------------------
+*
+      SUBROUTINE CFGBLK(ncfg,maxorb,QIAJCMP,QLJCOMP,QNJCOMP,QNOC,
+     :                  QNELCSH,QNOCORB,QJ1,QIAJCLD,QLJCLSD,term)
+*
+*       Read configurations for one block 
+*
+      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+*     IMPLICIT INTEGER (Q)
+      PARAMETER (NWD=60,NWCD=20)
+      POINTER(QNOC,NOCCSH(1)),(QNELCSH,NELCSH(8,1)),
+     :       (QNOCORB,NOCORB(8,1)),(QJ1,J1QNRD(15,1))
+      POINTER(QIAJCMP,IAJCMP(1)),(QLJCOMP,LJCOMP(1)),
+     :       (QNJCOMP,NJCOMP(1)),(QIAJCLD,IAJCLD(1)),
+     :       (QLJCLSD,LJCLSD(1))
+      CHARACTER EL(NWD)*3, LINE*72, HEAD*30
+      DIMENSION J3QN(15),J2QN(15),J1QN(15)
+      CHARACTER*1 JAJCLD(3,NWCD),JAJCMP(3,NWD),JCQN(15),
+     :            JQNG(15),J3QNG(15)
+*
+      COMMON/INFORM/IREAD,IWRITE,IOUT,ISC0,ISC1,ISC2,ISC3,JSC0,JSC(4)
+      COMMON /CLOSED/B1ELC(4),NCLOSD,IBK
+     : IALL,ISCW, state
+      character term*3
+      character*1 RD1, RD2, parity
+*
+    5 FORMAT(8(1X,A3,1X,I2,1X))
+    6 FORMAT(15(1X,A1,A1,A1))
+    7 FORMAT(A72)
+*
+*     .. skip the first two lines
+      read(iread,7) 
+      read(iread,7) 
+*
+* --- READ IN (AND PRINT OUT) CONFIGURATIONS ETC. FOR THE STATE UNDER
+* --- CONSIDERATION
+*
+      DO 63 I=1,NCFG
+      READ(IREAD,7) LINE
+      N=0
+      J=2
+   65 IF (LINE(J:J+2) .NE. '   ' .and. N .LT. (8)) THEN
+         N = N + 1
+         J = J +8
+         GO TO 65
+      END IF
+      NOCCSH(I) = N
+      READ(LINE,5)       (NOCORB(J,I),NELCSH(J,I),J=1,N)
+      DO 61 J=1,N
+      DO 61 JJ=1,MAXORB
+   61 IF(NOCORB(J,I).EQ.IAJCMP(JJ)) NOCORB(J,I)=JJ
+      M=2*N-1
+      N1=N+1
+      read(iread,7) line
+      READ(line,6)    (J3QNG(J),JCQN(J),JQNG(J),J=1,M)
+
+      If (i .eq. 1) then
+*       Determine parity
+        ip = 0
+        Do iip = 1,n
+          iorb = nocorb(iip,1)
+          iq   = nelcsh(iip,1)
+          ip = ip + ljcomp(iorb)*iq
+*         print *, iorb, iq, ip, ljcomp(iorb)
+        end do
+        if ((ip/2)*2 .eq. ip) then
+          parity ='e'
+        else
+          parity ='o'
+        end if
+*       In small cases, term might be three characters as in 1D2.
+*       In such cases, parity replaces the third character.
+        len = len_trim(line)
+        term = adjustl(line(len-2:len))
+        term(3:3) = parity
+	 print *, 'processing ', term, ' with ',ncfg, 'configurations'
+      end if
+
+
+      DO 62 J=1,M
+      J1QN(J) = NUMVAL(JQNG(J))
+      J2QN(J) = 2*LVAL(JCQN(J)) + 1
+      J3QN(J) = ICHAR(J3QNG(J))-ICHAR('1') + 1
+      J1QNRD(J,I) = (J3QN(J)*64 + J2QN(J))*64 + J1QN(J)
+   62 CONTINUE
+   63 CONTINUE
+*     .. skip * line
+      read(iread,7)
+*
+*     . check the coupling
+      CALL CFGTST(NCFG,QLJCOMP,QNOC,QNELCSH,QNOCORB,QJ1)
+*
+      RETURN
+      END
+
+*
+*     ------------------------------------------------------------------
+*      cfg_inf
+*     ------------------------------------------------------------------
+*
+*        This routine writes the cfg.inp file with data needed
+*
+
+      SUBROUTINE cfg_inf(i,ncoff,itotal,NCLOSD,NCDIM,IDIM,NIJ,who,
+     :                   term)
+      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+      POINTER(QNOC,NOCCSH(1)),(QNELCSH,NELCSH(8,1)),
+     :       (QNOCORB,NOCORB(8,1)),(QJ1,J1QNRD(15,1))
+      POINTER(QIAJCMP,IAJCMP(1)),(QLJCOMP,LJCOMP(1)),
+     :       (QNJCOMP,NJCOMP(1)),(QIAJCLD,IAJCLD(1)),
+     :       (QLJCLSD,LJCLSD(1))
+      COMMON /NDIMS/ QNOC,QNELCSH,QNOCORB,QJ1,NCFG
+      COMMON /NON30/ QIAJCMP,QNJCOMP,QLJCOMP,QIAJCLD,QLJCLSD,MAXORB
+      COMMON/INFORM/IREAD,IWRITE,IOUT,ISC(4),IALL,JSC(4)
+      CHARACTER STRING*30, LINE*74, who*5
+      character term*3
+      integer i 
+*
+  1   FORMAT(A12,i10,I8,i3,I4,I6,I8,I8,I8,2x,a5)
+  2   FORMAT(20(1x,A3))
+      NWF = MAXORB + NCLOSD
+      WRITE(25,1) term,ncoff,itotal,NCLOSD,NWF,NCFG,IDIM,NCDIM,NIJ,who
+      RETURN
+      END
+
+*
+*     ------------------------------------------------------------------
+*       O R T H O G G
+*     ------------------------------------------------------------------
+*
+      SUBROUTINE ORTHOGG(LET)
+      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+      COMMON/INFORM/IREAD,IWRITE,IOUT,ISC(4),IALL,JSC(3),ISCW
+      COMMON/DEBUG/IBUG1,IBUG2,IBUG3,NBUG6,NBUG7,IFULL
+      COMMON/MEDEFN/IHSH,NJ(16),LJ(16),NOSH1(16),NOSH2(16),J1QN1(31,3),
+     :     J1QN2(31,3),IJFUL(16)
+      COMMON/SIGNF /SIGNFA
+*
+*     THIS SUBROUTINE CHECKS FOR POSSIBLE ORTHOGONALITY DUE TO
+*     COUPLING DIFFERENCES OR UNEVEN PARITY
+*
+  102 FORMAT(52H ORTHOGONALITY IN COUPLING SCHEMES OF CONFIGURATIONS)
+  103 FORMAT(59H THE TWO CONFIGURATIONS HAVE DIFFERING NUMBERS OF ELECTR
+     :ONS)
+  104 FORMAT(51H THE TWO CONFIGURATIONS HAVE DIFFERING TOTAL PARITY)
+*
+* --- DO PSI AND PSIP CONTAIN THE SAME NUMBERS OF ELECTRONS
+*     DO PSI AND PSIP HAVE THE SAME TOTAL PARITY
+*
+      N5=0
+      N6=0
+      N7=0
+      DO 1 I=1,IHSH
+        L1=LJ(I)
+        L2=NOSH1(I)
+        L3=NOSH2(I)
+        N5=N5+L2
+        N6=N6+L3
+        N7=N7+L1*(L2-L3)
+    1 CONTINUE
+*
+*     CHECK ON NUMBER OF ELECTRONS
+*
+      IF ((N5-N6).NE.0) THEN
+        WRITE(IWRITE,103)
+        LET=0
+*
+*     CHECK ON PARITY
+*
+      ELSE
+        IF((N7-N7/2*2).NE.0) THEN
+          WRITE(IWRITE,104)
+          LET=0
+        ELSE
+          N72=N7/2
+          SIGNFA=1.D0
+          IF( (N72-(N72/2)*2).NE.0 ) SIGNFA=-SIGNFA
+*
+* --- COUPLING ORTHOGONALITY TEST FOR FIRST TWO SHELLS
+*
+          LET=1
+        ENDIF
+      ENDIF
+      RETURN
+      END
+*
+*     ------------------------------------------------------------------
+*       O R T H O G G B
+*     ------------------------------------------------------------------
+*
+      SUBROUTINE ORTHOGGB(LET,INCL)
+*
+      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+*
+      COMMON/INFORM/IREAD,IWRITE,IOUT,ISC(8),ISCW
+      COMMON/DEBUG/IBUG1,IBUG2,IBUG3,NBUG6,NBUG7,IFULL
+      COMMON/IMAGNT/CONST,CONSOO,CONSS,ISPORB,ISOORB,ISPSPN,
+     :     IREL,ISTRICT,IZOUT,IELST,ITENPR
+      COMMON/MEDEFN/IHSH,NJ(16),LJ(16),NOSH1(16),NOSH2(16),J1QN1(31,3),
+     :     J1QN2(31,3),IJFUL(16)
+      LOGICAL INCL
+*
+*     THIS SUBROUTINE CHECKS FOR POSSIBLE ORTHOGONALITY DUE TO
+*     COUPLING DIFFERENCES OR UNEVEN PARITY
+*
+  101 FORMAT(37H DIFFERING RESULTANT ANGULAR MOMENTUM)
+  102 FORMAT(52H ORTHOGONALITY IN COUPLING SCHEMES OF CONFIGURATIONS)
+  103 FORMAT(59H THE TWO CONFIGURATIONS HAVE DIFFERING NUMBERS OF ELECTR
+     :ONS)
+  104 FORMAT(51H THE TWO CONFIGURATIONS HAVE DIFFERING TOTAL PARITY)
+*
+* --- DO PSI AND PSIP CONTAIN THE SAME NUMBERS OF ELECTRONS
+*     DO PSI AND PSIP HAVE THE SAME TOTAL PARITY
+*
+      N5=0
+      N6=0
+      N7=0
+      IELST=1
+      DO 20 I=1,IHSH
+      L1=LJ(I)
+      L2=NOSH1(I)
+      L3=NOSH2(I)
+      N5=N5+L2
+      N6=N6+L3
+      N7=N7+L1*(L2-L3)
+   20 CONTINUE
+*
+*     CHECK ON NUMBER OF ELECTRONS
+*
+      IF (N5-N6) 21,22,21
+   21 IF(IBUG2-1) 11,28,28
+   28 WRITE(IWRITE,103)
+      GO TO 11
+*
+*     CHECK ON PARITY
+*
+   22 IF(N7-N7/2*2) 23,24,23
+   23 IF(IBUG2-1) 11,25,25
+   25 WRITE(IWRITE,104)
+      GO TO 11
+   24 N1=2*IHSH-1
+      N2=IHSH+1
+      N3=IHSH-1
+      N4=IHSH-2
+      GO TO 3
+*
+* --- THE TWO CONFIGURATIONS WILL HAVE ZERO HAMILTONIAN MATRIX ELEMENT
+*
+   11 LET=0
+      RETURN
+    3 CONTINUE
+*
+* --- NO OBVIOUS ANGULAR MOMENTUM ORTHOGONALITY
+*
+   12 LET=1
+      IF (IELST.EQ.0.AND. .NOT.INCL) LET = 0
+      RETURN
+      END
+*
+*     ------------------------------------------------------------------
+*       S H E L L S
+*     ------------------------------------------------------------------
+*
+      SUBROUTINE SHELLS(JA,JB,LET)
+      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+*
+      POINTER(QNOC,NOCCSH(1)),(QNELCSH,NELCSH(8,1)),
+     :       (QNOCORB,NOCORB(8,1)),(QJ1,J1QNRD(15,1))
+      POINTER(QIAJCMP,IAJCMP(1)),(QLJCOMP,LJCOMP(1)),
+     :       (QNJCOMP,NJCOMP(1)),(QIAJCLD,IAJCLD(1)),
+     :       (QLJCLSD,LJCLSD(1))
+      COMMON /NDIMS/ QNOC,QNELCSH,QNOCORB,QJ1,NCFG
+      COMMON /NON30/ QIAJCMP,QNJCOMP,QLJCOMP,QIAJCLD,QLJCLSD,MAXORB
+      COMMON/MEDEFN/IHSH,NJ(16),LJ(16),NOSH(16,2),J1QN(31,3,2),
+     :IJFUL(16)
+      COMMON/OCCUPATION/NCG(16,2),ICG(16,2)
+      COMMON/JB/IHSHJB,NJB(16),LJB(16),NOSHJB(16),IJFULJB(16)
+C      WRITE(6,'(/A)') '  **************  iena  ******** '
+C      WRITE(6,'(/A)') '  JA JB '
+C      WRITE(6,'(2I5)') JA,JB
+      LET=1
+      IF(JA.EQ.JB) THEN
+      CALL SHELLSAME(JA)
+      RETURN
+      ENDIF
+      IA=NOCCSH(JA)
+      IB=NOCCSH(JB)
+      IF(IABS(IA-IB).GT.4) THEN
+      LET=0
+      RETURN
+      ENDIF
+      IAM=0
+      IBM=0
+      IGA=0
+      IGGA=0
+      IHSH=0
+      JG1=1
+      JG2=1
+    1 J1=NOCORB(JG1,JA)
+      J2=IJFULJB(JG2)
+      IHSH=IHSH+1
+C      WRITE(6,'(/A)') '  IHSH '
+C      WRITE(6,'(I3)')  IHSH 
+C      WRITE(6,'(A)') '  JG1, JG2 '
+C      WRITE(6,'(2I5)') JG1,JG2
+C      WRITE(6,'(A)') '        J1, J2 '
+C      WRITE(6,'(5X,2I5)') J1,J2
+      IF(J1.EQ.J2) THEN
+        NA=2
+        NB=2
+        JJ=J1
+      ELSEIF(J1.GT.J2) THEN
+        IF(IBM.EQ.0) THEN
+          NA=1
+          NB=2
+          JJ=J2
+	ELSE
+          NA=2
+          NB=1
+          JJ=J1
+	ENDIF
+      ELSEIF(J1.LT.J2) THEN
+        IF(IAM.EQ.0) THEN
+          NA=2
+          NB=1
+          JJ=J1
+	ELSE
+          NA=1
+          NB=2
+          JJ=J2
+	ENDIF
+      ENDIF
+      NCG(IHSH,1)=NA
+      NCG(IHSH,2)=NB
+      ICG(IHSH,1)=JG1
+      ICG(IHSH,2)=JG2
+      IF(NA.EQ.1) THEN
+        NOSH(IHSH,1)=0
+      ELSE
+        NOSH(IHSH,1)=NELCSH(JG1,JA)
+      ENDIF
+      IF(NB.EQ.1) THEN
+        NOSH(IHSH,2)=0
+      ELSE
+        NOSH(IHSH,2)=NOSHJB(JG2)
+      ENDIF
+C      WRITE(6,'(A)') '  nosh(1),nosh(2) '
+C      WRITE(6,'(2I5)') NOSH(IHSH,1),NOSH(IHSH,2)
+      NJ(IHSH)=NJCOMP(JJ)
+C      WRITE(6,'(A)') '  NJ '
+C      WRITE(6,'(I5)') NJ(IHSH)
+      LJ(IHSH)=LJCOMP(JJ)
+C      WRITE(6,'(A)') '  LJ '
+C      WRITE(6,'(I5)') LJ(IHSH)
+      IJFUL(IHSH)=JJ
+      IF(JG1.LT.IA.OR.JG2.LT.IB) THEN
+        IF(JG1.LT.IA) THEN
+	  IAM=0
+          IF(NA.EQ.2) JG1=JG1+1
+        ELSE
+          IF(NA.EQ.2)  THEN
+	  IF(IGGA.EQ.0) THEN	
+	  IAM=1
+	  IGG1=IGG1+1
+        ENDIF
+        ENDIF
+        ENDIF
+        IF(JG2.LT.IB) THEN
+	  IBM=0
+          IF(NB.EQ.2) JG2=JG2+1
+        ELSE
+          IF(NB.EQ.2)  THEN
+	  IF(IGGA.EQ.0) THEN	
+	  IBM=1
+	  IGG1=IGG1+1
+        ENDIF
+        ENDIF
+        ENDIF
+        GO TO 1
+      ENDIF
+      IF(NA.EQ.1) THEN
+	 IF(J1.LT.J2)RETURN
+	 IF(IAM.EQ.1) RETURN
+         IAM=1
+	 IBM=1
+         IGA=IGA+1
+         IF(IGA.EQ.1)GO TO 1
+      ENDIF
+      IF(NB.EQ.1) THEN
+	 IF(J2.LT.J1)RETURN
+	 IF(IBM.EQ.1) RETURN
+         IAM=1
+	 IBM=1
+         IGA=IGA+1
+         IF(IGA.EQ.1)GO TO 1
+      ENDIF
+      RETURN
+      END
+*
+*     ------------------------------------------------------------------
+*       S H E L L S J B
+*     ------------------------------------------------------------------
+*
+      SUBROUTINE SHELLSJB(JB)
+      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+*
+      POINTER(QNOC,NOCCSH(1)),(QNELCSH,NELCSH(8,1)),
+     :       (QNOCORB,NOCORB(8,1)),(QJ1,J1QNRD(15,1))
+      POINTER(QIAJCMP,IAJCMP(1)),(QLJCOMP,LJCOMP(1)),
+     :       (QNJCOMP,NJCOMP(1)),(QIAJCLD,IAJCLD(1)),
+     :       (QLJCLSD,LJCLSD(1))
+      COMMON /NDIMS/ QNOC,QNELCSH,QNOCORB,QJ1,NCFG
+      COMMON /NON30/ QIAJCMP,QNJCOMP,QLJCOMP,QIAJCLD,QLJCLSD,MAXORB
+      COMMON/OCCUPATION/NCG(16,2),ICG(16,2)
+      COMMON/JB/IHSHJB,NJB(16),LJB(16),NOSHJB(16),IJFULJB(16)
+      IB=NOCCSH(JB)
+      IHSHJB=IB
+      DO 1 J=1,IB
+        I1=NOCORB(J,JB)
+        NOSHJB(J)=NELCSH(J,JB)
+        NJB(J)=NJCOMP(I1)
+        LJB(J)=LJCOMP(I1)
+        IJFULJB(J)=I1
+    1 CONTINUE
+      RETURN
+      END
+*
+*     ------------------------------------------------------------------
+*       S H E L L S A M E
+*     ------------------------------------------------------------------
+*
+      SUBROUTINE SHELLSAME(JA)
+      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+      COMMON/JB/IHSHJB,NJB(16),LJB(16),NOSHJB(16),IJFULJB(16)
+      COMMON/MEDEFN/IHSH,NJ(16),LJ(16),NOSH(16,2),J1QN(31,3,2),
+     :IJFUL(16)
+      COMMON/OCCUPATION/NCG(16,2),ICG(16,2)
+      DO 2 J=1,IHSHJB
+        NCG(J,1)=2
+        NCG(J,2)=2
+        ICG(J,1)=J
+        ICG(J,2)=J
+        NOSH(J,1)=NOSHJB(J)
+        NOSH(J,2)=NOSHJB(J)
+        NJ(J)=NJB(J)
+        LJ(J)=LJB(J)
+        IJFUL(J)=IJFULJB(J)
+    2 CONTINUE
+      IHSH=IHSHJB
+      RETURN
+      END
+*
+*     ------------------------------------------------------------------
+*      C O U P L I N G 
+*     ------------------------------------------------------------------
+*
+      SUBROUTINE COUPLING(JA,JB)
+      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+*
+      POINTER(QNOC,NOCCSH(1)),(QNELCSH,NELCSH(8,1)),
+     :       (QNOCORB,NOCORB(8,1)),(QJ1,J1QNRD(15,1))
+      COMMON /NDIMS/ QNOC,QNELCSH,QNOCORB,QJ1,NCFG
+      COMMON/MEDEFN/IHSH,NJ(16),LJ(16),NOSH(16,2),J1QN(31,3,2),
+     :IJFUL(16)
+      COMMON/OCCUPATION/NCG(16,2),ICG(16,2)
+      DO 1 IH=1,IHSH
+        JC=JA
+        DO 2 I=1,2
+          IC=ICG(IH,I)
+          NC=NCG(IH,I)
+          I2H=IHSH+IH-1
+*
+* --- FIRST CONSIDER THE L.H.S. (I=1) OF THE MATRIX ELEMENT. NC=1 MEANS
+*     UNOCCUPIED, REPRESENTED BY A DUMMY SINGLET S SHELL, AND THE
+*    ADDITIONAL SET OF COUPLING QUANTUM NUMBERS WILL BE THE SAME AS THE
+*     LAST SET OF COUPLING QUANTUM NUMBERS ALREADY OBTAINED.
+*     NC=2 MEANS OCCUPIED.  THEN ALL THE NEW QUANTUM NUMBERS (BOTH FOR
+*     THE SHELL AND FOR THE COUPLING OF THIS SHELL TO THE RESULTANT OF
+*     THE PREVIOUS ONES) ARE DEFINED IN THE CORRESPONDING J1QNRD ARRAY.
+*     NOSH - THE NUMBER OF ELECTRONS IN THIS SHELL, IS DEFINED BY THE
+*     APPROPRIATE ENTRY IN NELCSH .  THE R.H.S. IS THEN CONSIDERED
+*     SIMILARLY (I=2)
+*
+          IF(NC.EQ.1) THEN
+            J1QN(IH,1,I)=0
+            J1QN(IH,2,I)=1
+            J1QN(IH,3,I)=1
+            IF(IH.EQ.2) THEN
+              J1QN(I2H,1,I)=0
+              J1QN(I2H,2,I)=J1QN(1,2,I)
+              J1QN(I2H,3,I)=J1QN(1,3,I)
+            ELSEIF(IH.GT.2) THEN
+	      I2H1=I2H-1
+              J1QN(I2H,1,I)=J1QN(I2H1,1,I)
+              J1QN(I2H,2,I)=J1QN(I2H1,2,I)
+              J1QN(I2H,3,I)=J1QN(I2H1,3,I)
+            END IF
+          ELSE
+          JD = J1QNRD(IC,JC)
+          J1QN(IH,1,I)=MOD(JD,64)
+          JD = JD/64
+          J1QN(IH,2,I) = MOD(JD,64)
+          J1QN(IH,3,I) = JD/64
+*
+*     IS THIS THE FIRST OCCUPIED SHELL OF EITHER CONFIGURATION. IF SO,
+*    THEN THERE ARE NO INTERMEDIATE COUPLINGS TO CONSIDER AT THIS STAGE
+*
+          IF(IH .GT. 1) THEN
+*
+*    IS THIS THE FIRST OCCUPIED SHELL OF THIS CONFIGURATION, THOUGH NOT
+*     THE FIRST OF THE OTHER CONFIGURATION.  IF SO, THE INTERMEDIATE
+*     COUPLING FORMED HAS THE SAME  L,S  VALUES AS THIS OCCUPIED SHELL,
+*     SINCE WE COUPLE THE SHELL TO A DUMMY SINGLET S.
+*
+            IF(IC .LE.1) THEN
+              I2 = 1
+            ELSE
+              I2 = NOCCSH(JC)+IC-1
+            END IF
+            JD = J1QNRD(I2,JC)
+            IF (IC .LE. 1) THEN
+              J1QN(I2H,1,I) = 0
+            ELSE
+              J1QN(I2H,1,I) = MOD(JD,64)
+            END IF
+            JD = JD/64
+            J1QN(I2H,2,I) = MOD(JD, 64)
+            J1QN(I2H,3,I) = JD/64
+          END IF
+        END IF
+        JC=JB
+    2   CONTINUE
+    1 CONTINUE
+      END
+*
+*     -------------------------------------------------------------
+*      S A V E N O N
+*     -------------------------------------------------------------
+*                                                                  *
+*     THIS SUBROUTINE FOR         G N O N H                        *
+*                                                                  *
+*     Written by G. Gaigalas,                                      * 
+*     Vanderbilt University,  Nashville            February 1994   * 
+*
+      SUBROUTINE SAVENON(I,A,KL,LA,LB,LC,LD,JA,JB,IPTR)
+      IMPLICIT DOUBLEPRECISION (A-H,O-Z)
+      COMMON/SIGNF/SIGNFA
+      A=A*SIGNFA
+      CALL SAVELS(I,A,KL,LA,LB,LC,LD,JA,JB,IPTR)
+      RETURN
+      END
+*
+*------------------------------------------------------------------------
+*        G E N I N T
+*------------------------------------------------------------------------
+*
+        SUBROUTINE genint(maxorb,lmax,ql,qintptr,qpackn,qlused,noint,
+     :                    iscw)
+        POINTER (ql,l(1)),(qintptr,intptr(0:2*lmax,4)),
+     :          (qpackn,ipackn(1)),(qlused,lused(1))
+        INTEGER l,intptr,ipackn
+        INTEGER maxorb,lmax,n
+        LOGICAL omit, ltriang, lused
+        DIMENSION noint(4)
+
+*       .. sweep through to find dimensions
+*
+*       Generate the list of possible integrals
+*
+*       Make the FK integrals: i2 <= i4
+*
+        n = 0
+        do k = 0,2*lmax
+          do i2 = 1,maxorb
+            l2 = l(i2)
+            do i4 = i2,maxorb
+              l4 = l(i4)
+              if (ltriang(k,l2,l2) .and. ltriang(k,l4,l4)) then
+                n = n+1
+              end if
+            end do
+          end do
+        end do
+        noint(1)=n
+*
+*       Make the GK integrals: i2 < i4
+*
+        do k = 0,2*lmax
+          do i2 = 1,maxorb
+            l2 = l(i2)
+            do i4 = i2+1,maxorb
+              l4 = l(i4)
+              if (ltriang(k,l2,l4) ) then
+                n = n+1
+              end if
+            end do
+          end do
+        end do
+        noint(2)=n
+*
+*       Make the RK integrals: i1<=i2; i1 <= i3; i1<=i4
+*
+        do k = 0,2*lmax
+          do i1 = 1,maxorb
+            l1 = l(i1)
+            do i2 = i1,maxorb
+              l2 = l(i2)
+              do i3=i1,maxorb
+                l3 = l(i3)
+                if (ltriang(k,l1,l3)) then
+                  do i4 = i1,maxorb
+                    l4 = l(i4)
+*                   .. omit if FK
+C                    omit = (i3-i1)+(i4-i2) .eq. 0
+                    omit = (i1.eq.i4.and.i2.eq.i3).or.
+     :                     (i1.eq.i3.and.i2.eq.i4)
+                    if ( .not. omit .and. ltriang(k,l2,l4) ) then
+                      n = n+1
+                    end if
+                  end do
+                end if
+              end do
+            end do
+          end do
+        end do
+        noint(3)=n
+*
+*       Make the  integrals: i2 < i4
+*
+        do i2 = 1,maxorb
+          l2 = l(i2)
+          do i4 = i2,maxorb
+            l4 = l(i4)
+            if (l2 .eq. l4) then
+              n = n+1
+            end if
+          end do
+        end do
+        noint(4)=n
+*
+
+*       .. allocate memory for integral book keeping
+
+        call alloc(qintptr,((2*lmax+1)*4),4)      
+        write(iscw,*) 'Allocating space for ',n,' integrals'
+        call alloc(qpackn,n,4)
+        call alloc(qlused,n,4)
+
+*       .. now generate the pointer data
+*
+*       Generate the list of possible integrals in packed form
+*       along with pointer values
+*
+*       Make the FK integrals: i2 <= i4
+*
+        n = 0
+        do k = 0,2*lmax
+          do i2 = 1,maxorb
+            l2 = l(i2)
+            do i4 = i2,maxorb
+              l4 = l(i4)
+              if (ltriang(k,l2,l2) .and. ltriang(k,l4,l4)) then
+                n = n+1
+                ipackn(n) = (k*64 + i2)*64 + i4
+C                write (*,*) 'ipack',ipackn(n)
+              end if
+            end do
+          end do
+          intptr(k,1) = n
+C          write (*,*) k,intptr(k,1)
+        end do
+*
+*       Make the GK integrals: i2 < i4
+*
+        do k = 0,2*lmax
+          do i2 = 1,maxorb
+            l2 = l(i2)
+            do i4 = i2+1,maxorb
+              l4 = l(i4)
+              if (ltriang(k,l2,l4) ) then
+                n = n+1
+                ipackn(n) = (k*64 + i2)*64 + i4
+C                write (*,*) 'ipack',ipackn(n)
+              end if
+            end do
+          end do
+          intptr(k,2) = n
+C          write (*,*) k,intptr(k,2)
+        end do
+*
+*       Make the RK integrals: i1<=i2; i1 <= i3; i1<=i4
+*
+        do k = 0,2*lmax
+          do i1 = 1,maxorb
+            l1 = l(i1)
+            do i2 = i1,maxorb
+              l2 = l(i2)
+              do i3=i1,maxorb
+                l3 = l(i3)
+                if (ltriang(k,l1,l3)) then
+                  do i4 = i1,maxorb
+                    l4 = l(i4)
+*                   .. omit if FK
+C                    omit = (i3-i1)+(i4-i2) .eq. 0
+                    omit = (i1.eq.i4.and.i2.eq.i3).or.
+     :                     (i1.eq.i3.and.i2.eq.i4)
+                    if ( .not. omit .and. ltriang(k,l2,l4) ) then
+                      n = n+1
+                      ipackn(n) = (((k*64+i1)*64+i2)*64+i3)*64+i4
+C                       write (*,*) 'ipack',ipackn(n)
+                    end if
+                  end do
+                end if
+              end do
+            end do
+          end do
+          intptr(k,3) = n
+C          write (*,*) k,intptr(k,3)
+        end do
+*
+*       Make the  integrals: i2 < i4
+*
+        do i2 = 1,maxorb
+          l2 = l(i2)
+          do i4 = i2,maxorb
+            l4 = l(i4)
+            if (l2 .eq. l4) then
+              n = n+1
+              ipackn(n) = i2*64 + i4
+C                write (*,*) 'ipack',ipackn(n)
+            end if
+          end do
+        end do
+        intptr(0,4) = n
+C        write (*,*) 0,intptr(0,4)
+*
+
+        end
+      subroutine getwd(myid,mpi_dir,lmpi_dir,p_name,lpn)
+
+      character*(60) en,ev,path,uname,mpi_dir 
+      integer*2  mode,serr
+      integer myid,plstr,lmpi_dir,lstring
+      character*(10) p_name
+
+      serr = hostnm(p_name);
+      p_name = trim(p_name);
+      lpn = len_trim(p_name);
+     
+      if (serr.ne.0) print*, 'could''nt get hostname, myid = ', 
+     :                       myid, ' exiting..'
+      if (serr.ne.0)  call exit(21);
+
+!     ... get user name
+      en = "USER";
+      call getenv(en,ev);
+      lstring = len_trim(ev);
+      uname = trim(ev); 
+
+!     ... get the path where mpiruns are supposed to run:
+      en = "MPI_TMP";
+      call getenv(en,ev);
+      lmpi_dir = len_trim(ev);
+      mpi_dir = trim(ev);
+ 
+      if (mpi_dir == '') then
+         print*, 'Error! $MPI_TMP not set, exiting... myid: ', 
+     :            p_name,':',myid;
+         call exit(22);
+      else 
+      if (myid == 0) print*, 'mpifiles will be in directory ', 
+     :            mpi_dir
+         print'(A8,A5,A1,A6,I2)', 'myname: ', 
+     :            p_name,':','myid: ',myid;
+      end if;
+
+      end subroutine getwd 
+
+      
+       
+
+      
+*-----------------------------------------------------------------------
+*               I S E A R CH
+*-----------------------------------------------------------------------
+*
+*     Given the type of integral, the packed integral,
+*     find its position in the list ipackn.  An open
+*     addressing scheme will be used.
+*
+      INTEGER FUNCTION isearch(icase,int,qpackn,qlused,qintptr,lmax)
+      POINTER (qpackn,ipackn(1)),(qintptr,intptr(0:2*lmax,4)),
+     :        (qlused,lused(1))
+      
+      LOGICAL found
+      LOGICAL lused
+*     Find k
+      k = int
+      if (icase.le.2 .or. icase.eq.4 .or. icase.eq.5) then
+        k = k/64/64
+      else if (icase .eq. 3 .or. icase .gt. 5) then
+        k = k/64/64/64/64
+      end if
+*     Find range of integral to search
+      if (k .eq. 0) then
+        if (icase .eq. 1) then
+          left = 0
+        else 
+          left = intptr(2*lmax,icase-1)
+        end if
+      else
+        left = intptr(k-1,icase)
+      end if
+      iright = intptr(k,icase)+1
+*
+*     .. begin searching the appropriate range
+      found = .false.
+10    mid = (left + iright)/2    
+      if (left .lt. mid .and. .not. found) then
+C        write(*,*) ipackn(mid)
+        if (int .eq. ipackn(mid)) then
+          isearch = mid
+          found = .true.
+          lused(isearch) = .true.
+        else if (int .gt. ipackn(mid)) then
+          left = mid
+        else
+          iright = mid
+        end if
+        go to 10
+      end if
+      if (.not. found) then
+        write(6,*) ' The integral', int,' for icase = ',icase,
+     :             ' not found in the list'
+        stop
+      end if
+      end
+
+
+
+
+
+
+*
+*------------------------------------------------------------------------
+*        L T R I A N G
+*------------------------------------------------------------------------
+*
+	LOGICAL FUNCTION ltriang(k,li,lj)
+	INTEGER k,li,lj
+*
+*       Return a value of TRUE if k,li,lj form a triangle
+*
+	IF ( mod(k+li+lj,2) .ne. 0) then
+	   ltriang = .false.
+	else
+	  IF (abs(li-lj) .gt. k ) then
+	    ltriang = .false.
+	  else if (li+lj .lt. k) then
+	    ltriang = .false.
+	  else
+	    ltriang = .true.
+	  end if
+	end if
+	end
+*
+*     ------------------------------------------------------------------
+*       A N G M O M G
+*     ------------------------------------------------------------------
+*
+      SUBROUTINE ANGMOMG(NEW,NZERO,IFIRST)
+      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+      PARAMETER (NWD=60, NWCD=20)
+      PARAMETER (LSDIM=30000)
+        INCLUDE 'mpif.h'
+        parameter (MAXPROC=100)
+        common /MPI/ myid, nprocs, ierr, istat(MPI_STATUS_SIZE)
+
+*
+      POINTER (qcn,cn(1)),(qinptr,inptr(lsdim)),(qpackn,ipackn(1)),
+     :        (qlused,lused(1)),(qnijptr,nijptr(lsdim)),
+     :        (qjan,jan(lsdim)),(qjbn,jbn(lsdim)),(qico,ico(1)),
+     :        (qintptr,idummy(1)) 
+      COMMON /buffer/qcn,qinptr,qpackn,qlused,qintptr,lmax,qnijptr,
+     :               qjan,qjbn,qico
+      COMMON/INFORM/IREAD,IWRITE,IOUT,ISC(4),IALL,JSC(3),ISCW
+      COMMON/DEBUG/IBUG1,IBUG2,IBUG3,NBUG6,NBUG7,IFULL
+      POINTER  (qjptr, jptr(1))
+      COMMON /fout/n,ntot,idum(6),nrec(8),iflag,lij,nij,qjptr,cf_tot
+      COMMON/DIAGNL/IDIAG,JA,JB
+      CHARACTER*30 FORMAT(3)
+      CHARACTER*1 NCHAR(8)
+      POINTER(QNOC,NOCCSH(1)),(QNELCSH,NELCSH(8,1)),
+     :       (QNOCORB,NOCORB(8,1)),(QJ1,J1QNRD(15,1))
+      POINTER(QIAJCMP,IAJCMP(1)),(QLJCOMP,LJCOMP(1)),
+     :       (QNJCOMP,NJCOMP(1)),(QIAJCLD,IAJCLD(1)),
+     :       (QLJCLSD,LJCLSD(1))
+      COMMON /NDIMS/ QNOC,QNELCSH,QNOCORB,QJ1,NCFG
+      COMMON /NON30/ QIAJCMP,QNJCOMP,QLJCOMP,QIAJCLD,QLJCLSD,MAXORB
+      POINTER(QIORTH,IORTH(1))
+      COMMON/OVRLAP/MU,NU,MUP,NUP,NONORT,NOVLPS,IROWMU,IROWNU,ICOLMU,
+     : ICOLNU,NORTH,IORDER,NCALLS,LMU,LNU,LMUP,LNUP,JMU,JNU,JMUP,JNUP,
+     :     QIORTH
+
+      LOGICAL lused
+*
+      DATA NCHAR/'1','2','3','4','5','6','7','8'/
+      DATA FORMAT/'(2H <,I3,5H |H| ,I2,6H > = <, ',
+     :              '  (A3,1H(,I2,1H)) ,5H |H| ,   ',
+     :                '(A3,1H(,I2,1H)),2H >,/)     '/
+*
+* --- THIS PROGRAMME CONSIDERS EITHER SUPERPOSITION OF CONFIGURATIONS OR
+*     MULTI-CONFIGURATIONAL HARTREE-FOCK WAVE FUNCTIONS.  USING THE
+*     RESULT THAT THE TWO-ELECTRON HAMILTONIAN MATRIX ELEMENT
+*     (PSI/V/PSIP)  CAN BE WRITTEN AS A SUM OF SLATER INTEGRALS, THE
+*     PRESENT CODE  -  WEIGHTS  -  CALCULATES THE COEFFICIENTS OF THESE
+*     INTEGRALS.  PSI AND PSIP ARE ALLOWED TO RUN OVER NCFG CONFIGURATNS
+*
+*
+* --- CONSIDER (PSI/V/PSIP) AS PSI AND PSIP RUN OVER ALL CONFIGURATIONS
+*
+*      if (mod(jb,100) .eq. 0) write(ISCW,*) '   jb =',jb
+      NFIRST = NCFG - NEW + 1
+      irow = max(jb,nfirst)
+      if (jb .gt. nzero) then
+        last = jb
+      else
+        last = ncfg
+      end if
+      Do 6 JA = irow, last
+*     DO 6 JA=irow,NCFG
+*     IF (JB .GT. NZERO .AND. IFIRST .EQ. 1 .AND. JA .NE. JB ) GO TO 6
+*     IF (JB.GT.NZERO .AND. JB.LT.NFIRST .AND. IFIRST.EQ.0) GO TO 6
+*     write(ISCW,*) '     ja =',ja
+      IFLAG=0
+      IDIAG=0
+      IF(JA.EQ.JB) IDIAG=1
+      IF (NORTH .NE. 0) THEN
+        WRITE(ISCW,'(A)') ' this prog. com. with orthogonal orbitals'
+        STOP
+      ENDIF
+      N1=NOCCSH(JA)
+      N2=NOCCSH(JB)
+*      IF (IFULL .NE. 0) THEN
+*         FORMAT(2)(2:2) = NCHAR(N1)
+*         FORMAT(2)(30:30) = NCHAR(N2)
+*         WRITE(IWRITE,'(///)')
+*         WRITE(IWRITE,FORMAT) JA,JB,
+*     :        (IAJCMP(NOCORB(J,JA)),NELCSH(J,JA),J=1,N1),
+*     :        (IAJCMP(NOCORB(J,JB)),NELCSH(J,JB),J=1,N2)
+*      END IF
+*
+* --- SET UP DEFINING QUANTUM NUMBERS FOR EACH MATRIX ELEMENT
+*
+C      CALL SETUP(JA,JB)
+      CALL SHELLS(JA,JB,LET)
+      IF(LET.EQ.0) GO TO 6
+      IF(IBUG1.GT.0.OR.IBUG2.GT.0) CALL VIJOUT(JA,JB)
+*
+* --- TEST ON POSSIBLE RECOUPLING ORTHOGONALITY
+*
+      CALL ORTHOGG(LET)
+      IF(LET.EQ.0) GO TO 6
+*
+* --- IF NO SUCH ORTHOGONALITY IS EXHIBITED, CALCULATE WEIGHTS OF SLATER
+*     INTEGRALS
+*
+       CALL NONRELAT
+      IF (IFLAG .NE. 0) then
+        if (lij/lsdim .eq. 1) then
+**          .. a record needs to be written to iout
+*           write(iout) lsdim,(jan(i),i=1,lsdim), (ico(i),i=1,lsdim)
+           write(38) lsdim,(jan(i),i=1,lsdim), (ico(i),i=1,lsdim)
+           lij = 0
+        end if
+        NIJ = NIJ + 1
+        LIJ = LIJ + 1
+        jan(lij) = ja
+        jbn(lij) = jb
+        ico(lij) = ntot
+      endif
+    6 CONTINUE
+*
+      END
+* ======================================================================
+*
+*     GENERAL PROGRAM TO COMPUTE MATRIX ELEMENTS OF THE  NON-
+*     RELATIVISTIC HAMILTONIAN UNDER THE FOLLOWING ASSUMPTIONS -
+*         (1) LS-COUPLING
+*         (2) ORTHO-NORMAL CONFIGURATION STATE FUNCTIONS
+*         (3) ALL ORBITALS ARE ORTHOGONAL
+*
+*     WRITTEN BY -
+*     G. GAIGALAS, INSTITUTE OF THEOERETICAL PHYSICS
+*        AND ASTRONOMY, VILNIUS, LITHUANIA
+*
+*     C. FROESE FISCHER, DEP'T OF COMPUTER SCIENCE
+*        VANDERBILT UNIVERISTY
+*
+*
+*     FEBRUARY, 1994
+*     AUGUST,   1994  (A Ynnerman for unsorted lists)
+*     DECEMBER, 1995                                 ( f-sell included )
+*     DECEMBER, 1998  (C. Froese Fischer and G. Tachiev - block version)
+*
+*
+* ======================================================================
+*
+      PROGRAM snonh
+      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+      PARAMETER (NWCD=20,NBD=20,LSDIM=30000,NWD=60)
+
+*
+*     MPI stuff ***********************************************
+*
+        INCLUDE 'mpif.h'
+        parameter (MAXPROC=100)
+        common /MPI/ myid, nprocs, ierr, istat(MPI_STATUS_SIZE)
+        Character*2 idstring
+        Character*72 program,arch,hostn,odir,output,outc
+        character*128 NAME(2),workpath
+        logical :: f_out
+        integer tids, nnn(6), working_procs, cf_tot
+        integer group_L
+	integer, allocatable, dimension(:) :: proc_ncoff
+        integer ncfg_left, new_group, new_id, color,MPI_GROUP_WORLD
+        integer comm_L, comm_last,itot_ng,itot_nr,itot_nf,itot_nl 
+        integer, allocatable, dimension(:) :: nij_buff
+        double precision :: message(200)
+        integer :: max_buffer
+        real*4 speed(0:MAXPROC),timarr(2),rstart,rfin,total,etime
+        real :: timing(4)
+        data speed / 101*1000.0 /
+        character*(128) mpi_dir,cwd,sh_command,tmpdir
+        character*(128) file_cl,file_c,file_y,file_cfg,p_name
+
+        integer lmpi_dir,lcwd,size,llc,lly,llcf,llcl,lpn
+        integer*2 serr
+****************************************************************
+
+      POINTER (qcn,cn(1)),(qinptr,inptr(1)),
+     :        (qpackn,ipackn(1)),
+     :        (qnijptr,nijptr(1)),(qjan,jan(1)),
+     :        (qjbn,jbn(1)),(qintptr,idummy(1)),
+     :        (qlused,lused(1)),
+     :        (qico,ico(1)) 
+      COMMON /buffer/qcn,qinptr,qpackn,qlused,qintptr,lmax,qnijptr,
+     :               qjan,qjbn,qico
+      COMMON/DEBUG/IBUG1,IBUG2,IBUG3,NBUG6,NBUG7,IFULL
+      COMMON/DIMEN/KFL1,KFL2,KFL3,KFL4,KFL5,KFL6,KFL7,MXIHSH
+      COMMON/INFORM/IREAD,IWRITE,IOUT,ISC0,ISC1,ISC2,ISC3,
+     : IALL,JSC(3),ISCW, state
+      COMMON /DIAGNL/IDIAG,JA,JB
+      POINTER  (qjptr, jptr(1))
+      pointer (qcn_g, cn_g(1)) ,(qinptr_g, inptr_g(1))
+      COMMON /fout/ncoff,ntot,idum(6),nrec(8),iflag,lij,nij,qjptr,cf_tot
+      POINTER(QNOC,NOCCSH(1)),(QNELCSH,NELCSH(8,1)),
+     :       (QNOCORB,NOCORB(8,1)),(QJ1,J1QNRD(15,1))
+      POINTER(QIAJCMP,IAJCMP(1)),(QLJCOMP,LJCOMP(1)),
+     :       (QNJCOMP,NJCOMP(1)),(QIAJCLD,IAJCLD(1)),
+     :       (QLJCLSD,LJCLSD(1))
+      COMMON /NDIMS/ QNOC,QNELCSH,QNOCORB,QJ1,NCFG, nlines, endc
+      COMMON /NON30/ QIAJCMP,QNJCOMP,QLJCOMP,QIAJCLD,QLJCLSD,MAXORB
+      COMMON /CLOSED/B1ELC(4),NCLOSD,IBK
+      COMMON /OPERAT/ ICOLOM,ISOTOP,IORBORB
+      DIMENSION noint(4)
+      POINTER (qltused,ltused(1))
+      logical ltused
+      INTEGER NBsize(NBD), n_sum
+*      REAL TIME(2), ETIME, ELAPSE
+      LOGICAL lused, yclist, endc 
+      Character*72 string
+      CHARACTER LINE*72, EL(NWD)*3
+      character*3 term
+      character*5 su 
+      integer l_clist
+
+      CHARACTER*16 INPUT
+      EXTERNAL INITT
+
+    1 FORMAT(//' IOUT =  FGR.LST (OUTPUT FILE)'/
+     :         ' IBUG1  =',I3,' (DEBUG IN WEIGHTS OF 1-EL PART)'/
+     :         ' IBUG2  =',I3,' (DEBUG IN WEIGHTS OF 2-EL PART)'/
+     :         ' IBUG3  =',I3,' (DEBUG IN RECOUPLING PACKAGE)'//)
+*
+    2 FORMAT(///20X,'   ==============================='/
+     :            20X,'         S N O N H_M P I   2000',/
+     :            20X,'   ==============================='//)
+  3   FORMAT(A30,I3,I4,I6,I8,I8,I8,2x,a5)
+
+* ...  THE FOLLOWING SECTION CONCERNS INPUT/OUTPUT AND MAY BE
+*      SYSTEM DEPENDENT.  CHECK ALLOWED UNIT NUMBERS AND
+*      FILE NAME CONVENTIONS - MODIFY, IF NECESSARY.
+
+      call MPI_INIT(ierr)
+      call MPI_COMM_RANK(MPI_COMM_WORLD, myid, ierr) 
+      call MPI_COMM_SIZE(MPI_COMM_WORLD, nprocs, ierr)
+      timing(1) = MPI_WTIME()
+ 
+      write(idstring,'(I2.2)') myid
+      input = 'cfg.inp'
+
+      su = 'snonh'
+      i = iargc()
+      if (i .eq. 0) then
+         INPUT = 'cfg.inp'
+         inquire( FILE=input, exist=yclist)
+         if (yclist) then
+            if(myid == 0) write (iscw,*) 'input file is cfg.inp ...'
+         else
+            write (iscw,*) 'cfg.inp not found: nonh is exiting!...'
+            call exit(0)
+          endif
+       end if
+
+      IREAD=4
+      IOUT=8
+
+      if (myid.eq.0) then
+         ISCW = 0
+         IWRITE = 6
+      else
+         iscw = 40
+         iwrite = 40
+      end if
+
+      WRITE(IWRITE,2)
+      write(iscw,'(A,i4,A)') 
+     :      '                 ...snonh_mpi running on ',
+     :                  nprocs,' processors...'
+      write(iscw,*)
+
+
+*>>>>>>>> specify files for input output >>>>>>>>>>>>>>>>>
+
+      cwd = " "; mpi_dir = " "; tmpdir = " ";
+      call mpi_work_dir(cwd, mpi_dir, tmpdir);
+      lcwd = LEN_TRIM(cwd)  - 1
+      lenperm = LEN_TRIM(mpi_dir) - 1
+      lentmp = LEN_TRIM(tmpdir)  - 1
+
+      file_c = tmpdir(1:lentmp)//'/c.lst.'//idstring
+      file_y = tmpdir(1:lentmp)//'/yint.lst.'//idstring
+      file_cl = cwd(1:lcwd)//'/cfg.inp'
+      file_cfg = cwd(1:lcwd)//'/cfg.h'
+      llc = len_trim(file_c)
+      lly = len_trim(file_y)
+      llcl = len_trim(file_cl)
+      llcf = len_trim(file_cfg)
+
+      !print*, file_c,file_y,file_cl,file_cfg
+      open(unit=39,file=file_c(1:llc),status='unknown',
+     :     form='unformatted');
+      !serr = chmod(file_c(1:llc),511)
+      !if (serr.ne.0) print *, 'can''t chmod to 4777 of', file_c
+      open(unit=38,file=file_y(1:lly),status='unknown',
+     :     form='unformatted');
+      !serr = chmod(file_y(1:lly),511)
+      !if (serr.ne.0) print *, 'can''t chmod to 4777 of', file_y
+      OPEN(UNIT=IREAD,FILE=file_cl(1:llcl),STATUS='UNKNOWN')
+      if (myid == 0) then
+         OPEN(UNIT=25,FILE=file_cfg(1:llcf),STATUS='UNKNOWN')
+      end if
+       
+*>>>>>>>>>>>> end files <<<<<<<<<<<<<<<<<<<<<<<<<<
+*
+*     ... END OF MACHINE DEPENDENT SECTION
+*
+
+      ICOLOM=1
+      ISOTOP=0
+      IORBORB=0
+      IBUG1 = 0
+      IBUG2 = 0
+      IBUG3 = 0
+      ist=0
+      IFIRST = 0
+      IALL = 1
+
+*
+*  ---  Determine input data; non-orthogonal case
+*
+      call inita
+      call analy_blk(IREAD,IWRITE,NCLOSD,MAXORB,NB,NBsize,EL)
+      call orbitals(maxorb,el,qiajcmp,qljcomp,
+     :                    qnjcomp,qiajcld,qljclsd,nb)
+
+*  ..   find maximum l-value
+      lmax = 0
+      do i=1,maxorb
+         lmax = max (lmax,ljcomp(i))
+      end do
+
+*  .. allocate memory for buffered i/o
+
+      call alloc(qcn,lsdim,8)
+      call alloc(qinptr,lsdim,4)
+      call alloc(qnijptr,lsdim,4)
+      call alloc(qjan,lsdim,4)
+      call alloc(qjbn,lsdim,4)
+      call alloc(qico,lsdim,4)
+
+*  .. generate list of integrals
+
+      call genint(maxorb,lmax,qljcomp,qintptr,qpackn,qlused,noint,iscw)
+
+*  .. initialize lused
+      lused(1:noint(4)) = .FALSE.
+
+*  .. write global information to cfg.inp
+      nint = noint(4)
+
+      if (myid==0) then
+      write(25, '(I3,2I8,3x,A5)') nb, nint, lsdim, su
+      end if
+
+      rewind (iread)
+*      call MPI_BARRIER(MPI_COMM_WORLD,ierr)
+      timing(2) = MPI_WTIME() 
+      ncfg_total = sum(NBsize)
+      allocate (proc_ncoff(NB*nprocs));
+      proc_ncoff = 0;
+      max_buffer = 0
+      cf_tot = 0
+*  .. for all blocks
+      do NLB = 1, NB
+         ncfg = NBsize(NLB)
+         NEW = NCFG
+         NZERO = NCFG
+         nrec = 0
+         cf_tot = 0
+*     .. allocate memory for this block
+         call alloc(qnoc,ncfg,4)
+         call alloc(qnelcsh,8*ncfg,4)
+         call alloc(qnocorb,8*ncfg,4)
+         call alloc(qj1,15*ncfg,4)
+         call alloc(qjptr,ncfg,4)
+
+*        read CFG's for this block
+         CALL CFGBLK(ncfg,maxorb,QIAJCMP,QLJCOMP,QNJCOMP,QNOC,
+     :                  QNELCSH,QNOCORB,QJ1,QIAJCLD,QLJCLSD,term)
+        write(iscw,'(A,A,A,i8,A)')'processing ',term,' with ',
+     :                            ncfg,' configurations'
+*
+*        Initialize parameters for output
+*
+         lij = 0; nij = 0; mycol = 0; ntot = 0; ncoff = 0;
+         n_start = 1; nj_start = 1; nij_tot = 0; njptr_start = 1;
+         ntot_tot = 0;
+         
+*        ... create communicator for the last ncfg_last 
+         ncfg_last = modulo(ncfg,nprocs)
+!         if (myid < ncfg_last) then
+!            new_s = 1
+!         else
+!            new_s = 0 
+!         end  if
+!         call MPI_COMM_SPLIT(group_L,new_s,myid,comm_last,ierr)
+!         call MPI_COMM_SIZE(comm_last,nsize,ierr )
+!         call MPI_COMM_RANK(comm_last,new_id,ierr)
+
+*        ... allocate memeory for buffered output
+         if (myid==0) then
+           call alloc(qcn_g,lsdim,8)
+           allocate(nij_buff(ncfg))
+           nij_buff = 0
+         end if
+
+         ncfg_left = ncfg
+         f_out = .false.
+
+         do jb = myid+1,ncfg,nprocs
+           if (mod(jb,1000) .eq. 0) write(0,*) '   jb =',jb
+!           if (mod(jb,10) .eq. 0) write(0,*) '   jb =',jb
+           if (jb.eq.ncfg) write(0,*) '   jb =',jb
+           if (jb > (ncfg-nprocs)) f_out = .true.
+!           if (ncfg_left >=  nprocs) then
+!              working_procs = MPI_COMM_WORLD 
+!              npw = nprocs - 1 
+!           else 
+!              working_procs = comm_last !new_group !group_L
+!              working_procs = MPI_COMM_WORLD
+!              npw = ncfg_last - 1
+!           end if 
+          
+           CALL SHELLSJB(jb)
+           CALL ANGMOMG(NEW,NZERO,IFIRST)
+
+           if (myid < ncfg_left) then
+!           call MPI_SEND(lij,1,MPI_INTEGER,0,94,MPI_COMM_WORLD,ierr)
+!           call MPI_SEND(nij,1,MPI_INTEGER,0,97,MPI_COMM_WORLD,ierr)
+           end if
+
+           mycol = mycol + 1
+           jptr(mycol) = nij
+           ncfg_left = ncfg_left - nprocs
+        end do
+*     call mpi_barrier(MPI_COMM_WORLD,ierr)
+*>>>>
+      call MPI_Reduce(nij,nij_tot,1,MPI_INTEGER,MPI_MAX,0,
+     :                 MPI_COMM_WORLD,ierr)
+
+*>>>>>
+*     .. finish writing the coefficient data, if non empty arrays
+*      ..... write jptr contained in nij_buff
+
+       write(38) lij,(jan(i),i=1,lij), (ico(i),i=1,lij)
+*       if (myid == 0) then
+*          print*, lij,(jan(i),i=1,lij), (ico(i),i=1,lij)
+*       endif
+       write(38) mycol,(jptr(i),i=1,mycol)
+*>>>>
+        if (ncoff.eq.lsdim) then
+           write(39) lsdim,(cn(j),j=1,lsdim),(inptr(j),j=1,lsdim)
+           cf_tot = cf_tot + lsdim
+           ncoff=0
+           cn(ncoff)=0
+           inptr(ncoff)=0
+	 else 
+            cf_tot = cf_tot + ncoff
+         end if
+         write(39) ncoff, (cn(j),j=1,ncoff),(inptr(j),j=1,ncoff)
+*         if (myid == 0) then
+*            print*, ncoff, (cn(j),j=1,ncoff),(inptr(j),j=1,ncoff) 
+*         end if
+      call MPI_GATHER(cf_tot,1,MPI_INTEGER,
+     :                 proc_ncoff(((NLB-1)*nprocs)+myid+1),
+     :                 1,MPI_INTEGER, 0, MPI_COMM_WORLD,ierr)
+
+*>>>>
+
+      timing(3) = MPI_WTIME()
+*     .. deallocate memory for buffered i/o
+
+      nf = nrec(1)
+      ng = nrec(2)
+      nr = nrec(3)
+      nl = nrec(4)
+
+*      call mpi_barrier(MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(nf,itot_nf,1,MPI_INTEGER,MPI_SUM,0,
+     :                 MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(ng,itot_ng,1,MPI_INTEGER,MPI_SUM,0,
+     :                 MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(nr,itot_nr,1,MPI_INTEGER,MPI_SUM,0,
+     :                 MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(nl,itot_nl,1,MPI_INTEGER,MPI_SUM,0,
+     :                 MPI_COMM_WORLD,ierr)
+
+      ITOTAL = NF+NG+NR+NL
+      itot_tot = itot_nf+itot_ng+itot_nr+itot_nl
+      write(iscw,220) nij_tot,itot_nf,itot_ng,itot_nr,itot_nl,itot_tot
+  220 FORMAT( I8, ' non-zero matrix elements'/
+     :      I8,' NF',I8,' NG',I8,' NR',I8,' NL'/
+     :       I8,' Total number of integrals')
+
+*    .. write block information to cfg.inp
+      if(myid == 0) then
+         write(25,'(3x,A3,I8,I8,i20)') term, ncfg, nij_tot
+      end if 
+
+         call dalloc(qnoc,ncfg)
+         call dalloc(qnelcsh,8*ncfg)
+         call dalloc(qnocorb,8*ncfg)
+         call dalloc(qj1,15*ncfg)
+         if (myid == 0) deallocate(nij_buff)
+         if (myid == 0) call dalloc(qcn_g,lsdim);
+      end do
+*    ..end loop on all blocks
+     
+      if (myid == 0) then
+        do ix1 = 1, NB
+          write(25,'(A6,i3)') "Block ", ix1
+          do ix2 = 1, nprocs
+            write(25,'(i20)') proc_ncoff(((ix1-1)*nprocs)+ix2)
+          end do 
+        end do
+      end if
+
+       call alloc(qltused,noint(4),4)
+       ltused(1:noint(4)) = .false.
+
+      call MPI_ALLREDUCE(lused,ltused,noint(4),MPI_LOGICAL,MPI_LOR,
+     :                MPI_COMM_WORLD,ierr)
+
+*      if (myid == 0) then
+        iscase = 1
+        do icase=1,4
+          write(38) icase,noint(icase)
+          write(38) (ipackn(i),i=iscase,noint(icase)),
+     :               (ltused(i),i=iscase,noint(icase))
+          iscase = noint(icase) + 1
+        end do
+*      end if
+
+*     .. end the processing
+      call dalloc(qljclsd,nwcd)
+      call dalloc(qpackn,noint)
+      call dalloc(qintptr,2*lmax+1)
+      call dalloc(qcn,lsdim)
+      call dalloc(qinptr,lsdim)
+      call dalloc(qnijptr,lsdim)
+      call dalloc(qjan,lsdim)
+      call dalloc(qjbn,lsdim)
+      call dalloc(qico,lsdim)
+      call dalloc(qnjcomp,nwfd)
+      call dalloc(qljcomp,nwfd)
+      deallocate (proc_ncoff)
+
+*      elapse = etime(time)
+*      elapse = etime_(time)
+*6     write(iscw,'(//A/A//A,F8.3,A//)') ' END OF CASE',' ===========',
+*     :      ' Total CPU time was ', TIME(1)/60, ' minutes'
+
+      write (iscw,*)  'end-of-file cfg.inp!!!'
+      endfile 25
+      if (myid == 0) then
+        close(50)
+        close(8)
+      end if
+      close(39)
+      close(38)
+      close(unit=25)
+      close(unit=39)
+*      call MPI_BARRIER(MPI_COMM_WORLD,ierr)
+      timing(4) = MPI_WTIME()
+*      write(iscw,*) 'time 1= ', timing(2)-timing(1)
+*      write(iscw,*) 'time 2= ', timing(3)-timing(2)
+*      write(iscw,*) 'time 3= ', timing(4)-timing(3) 
+*      write(iscw,*) 'the time per 1 cfg =',   
+*     :                (timing(4)-timing(1))/ncfg_total
+*      write(iscw,*) 'total =', (timing(4)-timing(1))
+      call MPI_FINALIZE(ierr)
+
+      END PROGRAM SNONH
+* ======================================================================
+*
+*     GENERAL PROGRAM TO COMPUTE MATRIX ELEMENTS OF THE  NON-
+*     RELATIVISTIC HAMILTONIAN UNDER THE FOLLOWING ASSUMPTIONS -
+*         (1) LS-COUPLING
+*         (2) ORTHO-NORMAL CONFIGURATION STATE FUNCTIONS
+*         (3) ALL ORBITALS ARE ORTHOGONAL
+*
+*     WRITTEN BY -
+*     G. GAIGALAS, INSTITUTE OF THEOERETICAL PHYSICS
+*        AND ASTRONOMY, VILNIUS, LITHUANIA
+*
+*     C. FROESE FISCHER, DEP'T OF COMPUTER SCIENCE
+*        VANDERBILT UNIVERISTY
+*
+*
+*     FEBRUARY, 1994
+*     AUGUST,   1994  (A Ynnerman for unsorted lists)
+*     DECEMBER, 1995                                 ( f-sell included )
+*     DECEMBER, 1998  (C. Froese Fischer and G. Tachiev - block version)
+*
+*
+* ======================================================================
+*
+      PROGRAM snonh
+      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+      PARAMETER (NWCD=20,NBD=20,LSDIM=30000,NWD=60)
+
+*
+*     MPI stuff ***********************************************
+*
+        INCLUDE 'mpif.h'
+        parameter (MAXPROC=100)
+        common /MPI/ myid, nprocs, ierr, istat(MPI_STATUS_SIZE)
+        Character*2 idstring
+        Character*72 program,arch,hostn,odir,output,outc
+        character*128 NAME(2),workpath
+        logical :: f_out
+        integer tids, nnn(6), working_procs, cf_tot
+        integer group_L
+	integer, allocatable, dimension(:) :: proc_ncoff
+        integer ncfg_left, new_group, new_id, color,MPI_GROUP_WORLD
+        integer comm_L, comm_last,itot_ng,itot_nr,itot_nf,itot_nl 
+        integer, allocatable, dimension(:) :: nij_buff
+        double precision :: message(200)
+        integer :: max_buffer
+        real*4 speed(0:MAXPROC),timarr(2),rstart,rfin,total,etime
+        real :: timing(4)
+        data speed / 101*1000.0 /
+        character*(128) mpi_dir,cwd,sh_command,tmpdir
+        character*(128) file_cl,file_c,file_y,file_cfg,p_name
+
+        integer lmpi_dir,lcwd,size,llc,lly,llcf,llcl,lpn
+        integer*2 serr
+****************************************************************
+
+      POINTER (qcn,cn(1)),(qinptr,inptr(1)),
+     :        (qpackn,ipackn(1)),
+     :        (qnijptr,nijptr(1)),(qjan,jan(1)),
+     :        (qjbn,jbn(1)),(qintptr,idummy(1)),
+     :        (qlused,lused(1)),
+     :        (qico,ico(1)) 
+      COMMON /buffer/qcn,qinptr,qpackn,qlused,qintptr,lmax,qnijptr,
+     :               qjan,qjbn,qico
+      COMMON/DEBUG/IBUG1,IBUG2,IBUG3,NBUG6,NBUG7,IFULL
+      COMMON/DIMEN/KFL1,KFL2,KFL3,KFL4,KFL5,KFL6,KFL7,MXIHSH
+      COMMON/INFORM/IREAD,IWRITE,IOUT,ISC0,ISC1,ISC2,ISC3,
+     : IALL,JSC(3),ISCW, state
+      COMMON /DIAGNL/IDIAG,JA,JB
+      POINTER  (qjptr, jptr(1))
+      pointer (qcn_g, cn_g(1)) ,(qinptr_g, inptr_g(1))
+      COMMON /fout/ncoff,ntot,idum(6),nrec(8),iflag,lij,nij,qjptr,cf_tot
+      POINTER(QNOC,NOCCSH(1)),(QNELCSH,NELCSH(8,1)),
+     :       (QNOCORB,NOCORB(8,1)),(QJ1,J1QNRD(15,1))
+      POINTER(QIAJCMP,IAJCMP(1)),(QLJCOMP,LJCOMP(1)),
+     :       (QNJCOMP,NJCOMP(1)),(QIAJCLD,IAJCLD(1)),
+     :       (QLJCLSD,LJCLSD(1))
+      COMMON /NDIMS/ QNOC,QNELCSH,QNOCORB,QJ1,NCFG, nlines, endc
+      COMMON /NON30/ QIAJCMP,QNJCOMP,QLJCOMP,QIAJCLD,QLJCLSD,MAXORB
+      COMMON /CLOSED/B1ELC(4),NCLOSD,IBK
+      COMMON /OPERAT/ ICOLOM,ISOTOP,IORBORB
+      DIMENSION noint(4)
+      POINTER (qltused,ltused(1))
+      logical ltused
+      INTEGER NBsize(NBD), n_sum
+*      REAL TIME(2), ETIME, ELAPSE
+      LOGICAL lused, yclist, endc 
+      Character*72 string
+      CHARACTER LINE*72, EL(NWD)*3
+      character*3 term
+      character*5 su 
+      integer l_clist
+
+      CHARACTER*16 INPUT
+      EXTERNAL INITT
+
+    1 FORMAT(//' IOUT =  FGR.LST (OUTPUT FILE)'/
+     :         ' IBUG1  =',I3,' (DEBUG IN WEIGHTS OF 1-EL PART)'/
+     :         ' IBUG2  =',I3,' (DEBUG IN WEIGHTS OF 2-EL PART)'/
+     :         ' IBUG3  =',I3,' (DEBUG IN RECOUPLING PACKAGE)'//)
+*
+    2 FORMAT(///20X,'   ==============================='/
+     :            20X,'         N O N H_M P I   2000',/
+     :            20X,'   ==============================='//)
+  3   FORMAT(A30,I3,I4,I6,I8,I8,I8,2x,a5)
+
+* ...  THE FOLLOWING SECTION CONCERNS INPUT/OUTPUT AND MAY BE
+*      SYSTEM DEPENDENT.  CHECK ALLOWED UNIT NUMBERS AND
+*      FILE NAME CONVENTIONS - MODIFY, IF NECESSARY.
+
+      call MPI_INIT(ierr)
+      call MPI_COMM_RANK(MPI_COMM_WORLD, myid, ierr) 
+      call MPI_COMM_SIZE(MPI_COMM_WORLD, nprocs, ierr)
+      timing(1) = 0 !MPI_WTIME()
+ 
+      write(idstring,'(I2.2)') myid
+      input = 'cfg.inp'
+
+      su = 'snonh'
+      i = iargc()
+      if (i .eq. 0) then
+         INPUT = 'cfg.inp'
+         inquire( FILE=input, exist=yclist)
+         if (yclist) then
+            write (iscw,*) 'input file is cfg.inp ...'
+         else
+            write (iscw,*) 'cfg.inp not found: nonh is exiting!...'
+            call exit(0)
+          endif
+       end if
+
+      IREAD=4
+      IOUT=8
+
+      if (myid.eq.0) then
+         ISCW = 0
+         IWRITE = 6
+      else
+         iscw = 40
+         iwrite = 40
+      end if
+
+      WRITE(IWRITE,2)
+      write(iscw,'(A,i4,A)') 
+     :      '                 ...snonh_mpi running on ',
+     :                  nprocs,' processors...'
+      write(iscw,*)
+
+
+*>>>>>>>> specify files for input output >>>>>>>>>>>>>>>>>
+                                                                                                 
+      cwd = " "; mpi_dir = " "; tmpdir = " ";
+      call mpi_work_dir(cwd, mpi_dir, tmpdir);
+                                                                                           
+      lcwd = LEN_TRIM(cwd)  !- 1
+      lenperm = LEN_TRIM(mpi_dir) !- 1
+      lentmp = LEN_TRIM(tmpdir)  !- 1
+                                                                                           
+      file_c   = tmpdir(1:lentmp)//'/c.lst.'//idstring
+      file_y   = tmpdir(1:lentmp)//'/yint.lst.'//idstring
+      file_cl  = cwd(1:lcwd)//'/cfg.inp'
+      file_cfg = cwd(1:lcwd)//'/cfg.h'
+
+      llc = len_trim(file_c)
+      lly = len_trim(file_y)
+      llcl = len_trim(file_cl)
+      llcf = len_trim(file_cfg)
+
+      open(unit=39,file=file_c(1:llc),status='unknown',
+     :     form='unformatted');
+      serr = chmod(file_c(1:llc),511)
+      if (serr.ne.0) print *, 'can''t chmod to 4777 of', file_c
+      open(unit=38,file=file_y(1:lly),status='unknown',
+     :     form='unformatted');
+      serr = chmod(file_y(1:lly),511)
+      if (serr.ne.0) print *, 'can''t chmod to 4777 of', file_y
+      OPEN(UNIT=IREAD,FILE=file_cl(1:llcl),STATUS='UNKNOWN')
+      if (myid == 0) then
+         OPEN(UNIT=25,FILE=file_cfg(1:llcf),STATUS='UNKNOWN')
+      end if
+       
+*>>>>>>>>>>>> end files <<<<<<<<<<<<<<<<<<<<<<<<<<
+*
+*     ... END OF MACHINE DEPENDENT SECTION
+*
+
+      ICOLOM=1
+      ISOTOP=0
+      IORBORB=0
+      IBUG1 = 0
+      IBUG2 = 0
+      IBUG3 = 0
+      ist=0
+      IFIRST = 0
+      IALL = 1
+
+*
+*  ---  Determine input data; non-orthogonal case
+*
+      call inita
+      call analy_blk(IREAD,IWRITE,NCLOSD,MAXORB,NB,NBsize,EL)
+      call orbitals(maxorb,el,qiajcmp,qljcomp,
+     :                    qnjcomp,qiajcld,qljclsd,nb)
+
+*  ..   find maximum l-value
+      lmax = 0
+      do i=1,maxorb
+         lmax = max (lmax,ljcomp(i))
+      end do
+
+*  .. allocate memory for buffered i/o
+
+      call alloc(qcn,lsdim,8)
+      call alloc(qinptr,lsdim,4)
+      call alloc(qnijptr,lsdim,4)
+      call alloc(qjan,lsdim,4)
+      call alloc(qjbn,lsdim,4)
+      call alloc(qico,lsdim,4)
+
+*  .. generate list of integrals
+
+      call genint(maxorb,lmax,qljcomp,qintptr,qpackn,qlused,noint,iscw)
+
+*  .. initialize lused
+      lused(1:noint(4)) = .FALSE.
+
+*  .. write global information to cfg.inp
+      nint = noint(4)
+
+      if (myid==0) then
+      write(25, '(I3,2I8,3x,A5)') nb, nint, lsdim, su
+      end if
+
+      rewind (iread)
+      call MPI_BARRIER(MPI_COMM_WORLD,ierr)
+      timing(2) = 0 !MPI_WTIME() 
+      ncfg_total = sum(NBsize)
+      allocate (proc_ncoff(NB*nprocs));
+      proc_ncoff = 0;
+      max_buffer = 0
+      cf_tot = 0
+*  .. for all blocks
+      do NLB = 1, NB
+         ncfg = NBsize(NLB)
+         NEW = NCFG
+         NZERO = NCFG
+         nrec = 0
+         cf_tot = 0
+*     .. allocate memory for this block
+         call alloc(qnoc,ncfg,4)
+         call alloc(qnelcsh,8*ncfg,4)
+         call alloc(qnocorb,8*ncfg,4)
+         call alloc(qj1,15*ncfg,4)
+         call alloc(qjptr,ncfg,4)
+
+*        read CFG's for this block
+         CALL CFGBLK(ncfg,maxorb,QIAJCMP,QLJCOMP,QNJCOMP,QNOC,
+     :                  QNELCSH,QNOCORB,QJ1,QIAJCLD,QLJCLSD,term)
+        write(iscw,'(A,A,A,i8,A)')'processing ',term,' with ',
+     :                            ncfg,' configurations'
+*
+*        Initialize parameters for output
+*
+         lij = 0; nij = 0; mycol = 0; ntot = 0; ncoff = 0;
+         n_start = 1; nj_start = 1; nij_tot = 0; njptr_start = 1;
+         ntot_tot = 0;
+         
+*        ... create communicator for the last ncfg_last 
+         ncfg_last = modulo(ncfg,nprocs)
+         if (myid < ncfg_last) then
+            new_s = 1
+         else
+            new_s = 0 
+         end  if
+!         call MPI_COMM_SPLIT(group_L,new_s,myid,comm_last,ierr)
+!         call MPI_COMM_SIZE(comm_last,nsize,ierr )
+!         call MPI_COMM_RANK(comm_last,new_id,ierr)
+
+*        ... allocate memeory for buffered output
+         if (myid==0) then
+           call alloc(qcn_g,lsdim,8)
+           allocate(nij_buff(ncfg))
+           nij_buff = 0
+         end if
+
+         ncfg_left = ncfg
+         f_out = .false.
+         do jb = myid+1,ncfg,nprocs
+           if (mod(jb,100) .eq. 0) write(0,*) '   jb =',jb
+           if (jb > (ncfg-nprocs)) f_out = .true.
+           if (ncfg_left >=  nprocs) then
+              working_procs = MPI_COMM_WORLD 
+              npw = nprocs - 1 
+           else 
+!              working_procs = comm_last !new_group !group_L
+              working_procs = MPI_COMM_WORLD
+              npw = ncfg_last - 1
+           end if 
+          
+           CALL SHELLSJB(jb)
+           CALL ANGMOMG(NEW,NZERO,IFIRST)
+
+           if (myid < ncfg_left) then
+cgd          call MPI_SEND(lij,1,MPI_INTEGER,0,94,working_procs,ierr)
+cgd          call MPI_SEND(nij,1,MPI_INTEGER,0,97,working_procs,ierr)
+           end if
+
+           mycol = mycol + 1
+           jptr(mycol) = nij
+           ncfg_left = ncfg_left - nprocs
+         end do
+cgd   call mpi_barrier(MPI_COMM_WORLD,ierr)
+*>>>>
+      call MPI_Reduce(nij,nij_tot,1,MPI_INTEGER,MPI_MAX,0,
+     :                 MPI_COMM_WORLD,ierr)
+
+*>>>>>
+*     .. finish writing the coefficient data, if non empty arrays
+*      ..... write jptr contained in nij_buff
+
+       write(38) lij,(jan(i),i=1,lij), (ico(i),i=1,lij)
+*       if (myid == 0) then
+*          print*, lij,(jan(i),i=1,lij), (ico(i),i=1,lij)
+*       endif
+       write(38) mycol,(jptr(i),i=1,mycol)
+*>>>>
+        if (ncoff.eq.lsdim) then
+           write(39) lsdim,(cn(j),j=1,lsdim),(inptr(j),j=1,lsdim)
+           cf_tot = cf_tot + lsdim
+           ncoff=0
+           cn(ncoff)=0
+           inptr(ncoff)=0
+	 else 
+            cf_tot = cf_tot + ncoff
+         end if
+         write(39) ncoff, (cn(j),j=1,ncoff),(inptr(j),j=1,ncoff)
+*         if (myid == 0) then
+*            print*, ncoff, (cn(j),j=1,ncoff),(inptr(j),j=1,ncoff) 
+*         end if
+      call MPI_GATHER(cf_tot,1,MPI_INTEGER,
+     :                 proc_ncoff(((NLB-1)*nprocs)+myid+1),
+     :                 1,MPI_INTEGER, 0, MPI_COMM_WORLD,ierr)
+
+*>>>>
+
+      timing(3) = 0 !MPI_WTIME()
+*     .. deallocate memory for buffered i/o
+
+      nf = nrec(1)
+      ng = nrec(2)
+      nr = nrec(3)
+      nl = nrec(4)
+
+      call mpi_barrier(MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(nf,itot_nf,1,MPI_INTEGER,MPI_SUM,0,
+     :                 MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(ng,itot_ng,1,MPI_INTEGER,MPI_SUM,0,
+     :                 MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(nr,itot_nr,1,MPI_INTEGER,MPI_SUM,0,
+     :                 MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(nl,itot_nl,1,MPI_INTEGER,MPI_SUM,0,
+     :                 MPI_COMM_WORLD,ierr)
+
+      ITOTAL = NF+NG+NR+NL
+      itot_tot = itot_nf+itot_ng+itot_nr+itot_nl
+      write(iscw,220) nij_tot,itot_nf,itot_ng,itot_nr,itot_nl,itot_tot
+  220 FORMAT( I8, ' non-zero matrix elements'/
+     :      I8,' NF',I8,' NG',I8,' NR',I8,' NL'/
+     :       I8,' Total number of integrals')
+
+*    .. write block information to cfg.inp
+      if(myid == 0) then
+         write(25,'(3x,A3,I8,I8,i20)') term, ncfg, nij_tot
+      end if 
+
+         call dalloc(qnoc,ncfg)
+         call dalloc(qnelcsh,8*ncfg)
+         call dalloc(qnocorb,8*ncfg)
+         call dalloc(qj1,15*ncfg)
+         if (myid == 0) deallocate(nij_buff)
+      end do
+*    ..end loop on all blocks
+     
+      if (myid == 0) then
+        do ix1 = 1, NB
+          write(25,'(A6,i3)') "Block ", ix1
+          do ix2 = 1, nprocs
+            write(25,'(i20)') proc_ncoff(((ix1-1)*nprocs)+ix2)
+          end do 
+        end do
+      end if
+
+       call alloc(qltused,noint(4),4)
+       ltused(1:noint(4)) = .false.
+
+      call MPI_ALLREDUCE(lused,ltused,noint(4),MPI_LOGICAL,MPI_LOR,
+     :                MPI_COMM_WORLD,ierr)
+
+*      if (myid == 0) then
+        iscase = 1
+        do icase=1,4
+          write(38) icase,noint(icase)
+          write(38) (ipackn(i),i=iscase,noint(icase)),
+     :               (ltused(i),i=iscase,noint(icase))
+          iscase = noint(icase) + 1
+        end do
+*      end if
+
+*     .. end the processing
+      call dalloc(qljclsd,nwcd)
+      call dalloc(qpackn,noint)
+      call dalloc(qintptr,2*lmax+1)
+      call dalloc(qcn,lsdim)
+      call dalloc(qinptr,lsdim)
+      call dalloc(qnijptr,lsdim)
+      call dalloc(qjan,lsdim)
+      call dalloc(qjbn,lsdim)
+      call dalloc(qico,lsdim)
+      call dalloc(qnjcomp,nwfd)
+      call dalloc(qljcomp,nwfd)
+      deallocate (proc_ncoff)
+
+*      elapse = etime(time)
+*      elapse = etime_(time)
+*6     write(iscw,'(//A/A//A,F8.3,A//)') ' END OF CASE',' ===========',
+*     :      ' Total CPU time was ', TIME(1)/60, ' minutes'
+
+      write (iscw,*)  'end-of-file cfg.inp!!!'
+      endfile 25
+      if (myid == 0) then
+        close(50)
+        close(8)
+      end if
+      close(39)
+      close(38)
+      close(unit=25)
+      close(unit=39)
+cgd   call MPI_BARRIER(MPI_COMM_WORLD,ierr)
+      timing(4) = 0 !MPI_WTIME()
+*      write(iscw,*) 'time 1= ', timing(2)-timing(1)
+*      write(iscw,*) 'time 2= ', timing(3)-timing(2)
+*      write(iscw,*) 'time 3= ', timing(4)-timing(3) 
+*      write(iscw,*) 'the time per 1 cfg =',   
+*     :                (timing(4)-timing(1))/ncfg_total
+*      write(iscw,*) 'total =', (timing(4)-timing(1))
+      call MPI_FINALIZE(ierr)
+
+      END PROGRAM SNONH
+
+*     ------------------------------------------------------------------
+*       O R B I T A L S
+*     ------------------------------------------------------------------
+*
+      SUBROUTINE ORBITALS(maxorb,el,qiajcmp,qljcomp,
+     :                    qnjcomp,qiajcld,qljclsd,nb)
+*
+*       Process the lists of closed shells, orbitals and set parameters
+*
+      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+*     IMPLICIT INTEGER (Q)
+      PARAMETER (NWD=60,NWCD=20,LSDIM=30000)
+        INCLUDE 'mpif.h'
+        parameter (MAXPROC=100)
+        common /MPI/ myid, nprocs, ierr, istat(MPI_STATUS_SIZE)
+
+      POINTER(QNOC,NOCCSH(1)),(QNELCSH,NELCSH(8,1)),
+     :       (QNOCORB,NOCORB(8,1)),(QJ1,J1QNRD(15,1))
+      POINTER(QIAJCMP,IAJCMP(1)),(QLJCOMP,LJCOMP(1)),
+     :       (QNJCOMP,NJCOMP(1)),(QIAJCLD,IAJCLD(1)),
+     :       (QLJCLSD,LJCLSD(1))
+      CHARACTER EL(NWD)*3, LINE*72, HEAD*30,string*72, buffer*8
+      DIMENSION J3QN(15),J2QN(15),J1QN(15)
+      CHARACTER*1 JAJCLD(3,NWCD),JAJCMP(3,NWD),JCQN(15)
+*
+      COMMON/INFORM/IREAD,IWRITE,IOUT,ISC0,ISC1,ISC2,ISC3,JSC0,JSC(4)
+      COMMON /CLOSED/B1ELC(4),NCLOSD,IBK
+*
+    3 FORMAT(18(1X,A3))
+    4 FORMAT(3A1)
+    5 FORMAT(8(1X,A3,1H(,I2,1H)))
+    6 FORMAT(15(1X,I1,A1,I1))
+    7 FORMAT(A72)
+    8 FORMAT(A3)
+    9 FORMAT(A15,F14.7)
+   23 FORMAT(/10H THERE ARE,I3,21H ORBITALS AS FOLLOWS://
+     : 5X,21(1X,A3):/5X,21(1X,A3))
+   25 FORMAT(/14H CONFIGURATION,I5,' :'
+     : ,8(1X,A3,1H(,I2,1H)))
+   26 FORMAT(4X,17H COUPLING SCHEME:,8(1X,4X,I1,A1,I1))
+   27 FORMAT(32X,7(1X,4X,I1,A1,I1))
+   28 FORMAT(/10H THERE ARE ,I3,31H CLOSED SUBSHELLS COMMON TO ALL ,
+     :  27H CONFIGURATIONS AS FOLLOWS: //
+     :  5X, 21(1X,A3))
+*
+* --- ALLOCATE MEMORY: NWFD = MAXORB
+*
+      NWFD = MAXORB
+      call alloc(qiajcmp,nwfd,4)
+      call alloc(qljcomp,nwfd,4)
+      call alloc(qnjcomp,nwfd,4)
+      call alloc(qiajcld,nwcd,4)
+      call alloc(qljclsd,nwcd,4)
+*
+* ---  We have the EL list from analyz_blk
+*
+      DO 30 I = 1,MAXORB
+         READ(EL(I),8) IAJCMP(I)
+         READ(EL(I),4) (JAJCMP(J,I),J=1,3)
+30    CONTINUE
+      WRITE(IWRITE,23) MAXORB,(IAJCMP(I),I=1,MAXORB)
+      DO 60 I=1,MAXORB
+      IF (JAJCMP(1,I) .EQ. ' ') THEN
+         JAJCMP(1,I) = JAJCMP(2,I)
+         JAJCMP(2,I) = JAJCMP(3,I)
+         JAJCMP(3,I) = ' '
+      ENDIF
+      LJCOMP(I) = LVAL(JAJCMP(2,I))
+      NJCOMP(I) = ICHAR(JAJCMP(1,I)) - ICHAR('1') + 1
+   60 CONTINUE
+*
+* --- We know the number of closed shells but not their properties
+*
+      REWIND(IREAD)
+      READ(IREAD,'(A72)')
+*
+* --- READ IN THE COMMON SET OF CLOSED SUBSHELLS
+*
+      READ(IREAD,3) (EL(I),I=1,NCLOSD)
+      DO 70 I=1,NCLOSD
+         READ(EL(I),8) IAJCLD(I)
+         READ(EL(I),4) (JAJCLD(J,I),J=1,3)
+         J = 3
+         IF (JAJCLD(1,I) .NE. ' ') J = 2
+         LJCLSD(I) = LVAL(JAJCLD(J,I))
+ 70   CONTINUE
+      WRITE(IWRITE,28) NCLOSD,(IAJCLD(I),I=1,NCLOSD)
+*
+*  ---  SEPARATE THE ELECTRON LABEL CHARACTERS AND LEFT JUSTIFY
+*
+       DO 10 I = 1,MAXORB
+          WRITE(BUFFER,'(A3)') IAJCMP(I)
+          READ(BUFFER,'(3A1)') (JAJCMP(J,I),J=1,3)
+          IF (JAJCMP(1,I) .EQ. ' ') THEN
+             JAJCMP(1,I) = JAJCMP(2,I)
+             JAJCMP(2,I) = JAJCMP(3,I)
+             JAJCMP(3,I) = ' '
+          END IF
+ 10    CONTINUE
+*     .. write out intial data about the problem
+      write(iout) nclosd, maxorb, nb, lsdim
+      write(38) nclosd, maxorb, nb, lsdim
+      if (nclosd .gt. 0) then
+         write(string,'(24A3)') (iajcld(i),i=1,nclosd)
+      end if
+      write(iout) string
+      write(38) string
+      do i = 1, maxorb, 24
+         m = min(maxorb,i+23)
+         write(string,'(24A3)') (iajcmp(j),j=i,m)
+         write(iout) string
+         write(38) string
+       end do
+
+*     ..write out intial data about the problem
+2     FORMAT(20(1x,A3))
+      NWF = MAXORB + NCLOSD
+        if (myid == 0) then
+        write(25,'(i4,a15)') nclosd, 'Closed Shells:'
+        WRITE(25,3) (iajcld(j),j=1,nclosd)
+        write(25,'(i4,a16)') nwf-nclosd, 'Other Orbitals:'
+        WRITE(25,3) (iajcmp(j),j=1,maxorb)
+        end if
+*
+      RETURN
+      END
+* ======================================================================
+*
+*     GENERAL PROGRAM TO COMPUTE MATRIX ELEMENTS OF THE  NON-
+*     RELATIVISTIC HAMILTONIAN UNDER THE FOLLOWING ASSUMPTIONS -
+*         (1) LS-COUPLING
+*         (2) ORTHO-NORMAL CONFIGURATION STATE FUNCTIONS
+*         (3) ALL ORBITALS ARE ORTHOGONAL
+*
+*     WRITTEN BY -
+*     G. GAIGALAS, INSTITUTE OF THEOERETICAL PHYSICS
+*        AND ASTRONOMY, VILNIUS, LITHUANIA
+*
+*     C. FROESE FISCHER, DEP'T OF COMPUTER SCIENCE
+*        VANDERBILT UNIVERISTY
+*
+*
+*     FEBRUARY, 1994
+*     AUGUST,   1994  (A Ynnerman for unsorted lists)
+*     DECEMBER, 1995                                 ( f-sell included )
+*     DECEMBER, 1998  (C. Froese Fischer and G. Tachiev - block version)
+*
+*
+* ======================================================================
+*
+      PROGRAM snonh
+      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+      PARAMETER (NWCD=20,NBD=20,LSDIM=30000,NWD=60)
+
+*
+*     MPI stuff ***********************************************
+*
+        INCLUDE 'mpif.h'
+        parameter (MAXPROC=100)
+        common /MPI/ myid, nprocs, ierr, istat(MPI_STATUS_SIZE)
+        Character*2 idstring
+        Character*72 program,arch,hostn,odir,output,outc
+        character*128 NAME(2),workpath
+        logical :: f_out
+        integer tids, nnn(6), working_procs, cf_tot
+        integer group_L
+	integer, allocatable, dimension(:) :: proc_ncoff
+        integer ncfg_left, new_group, new_id, color,MPI_GROUP_WORLD
+        integer comm_L, comm_last,itot_ng,itot_nr,itot_nf,itot_nl 
+        integer, allocatable, dimension(:) :: nij_buff
+        double precision :: message(200)
+        integer :: max_buffer
+        real*4 speed(0:MAXPROC),timarr(2),rstart,rfin,total,etime
+        real :: timing(4)
+        data speed / 101*1000.0 /
+        character*(60) mpi_dir,cwd,sh_command
+        character*(60) file_cl,file_c,file_y,file_cfg,p_name
+
+        integer lmpi_dir,lcwd,size,llc,lly,llcf,llcl,lpn
+        integer*2 serr
+****************************************************************
+
+      POINTER (qcn,cn(1)),(qinptr,inptr(1)),
+     :        (qpackn,ipackn(1)),
+     :        (qnijptr,nijptr(1)),(qjan,jan(1)),
+     :        (qjbn,jbn(1)),(qintptr,idummy(1)),
+     :        (qlused,lused(1)),
+     :        (qico,ico(1)) 
+      COMMON /buffer/qcn,qinptr,qpackn,qlused,qintptr,lmax,qnijptr,
+     :               qjan,qjbn,qico
+      COMMON/DEBUG/IBUG1,IBUG2,IBUG3,NBUG6,NBUG7,IFULL
+      COMMON/DIMEN/KFL1,KFL2,KFL3,KFL4,KFL5,KFL6,KFL7,MXIHSH
+      COMMON/INFORM/IREAD,IWRITE,IOUT,ISC0,ISC1,ISC2,ISC3,
+     : IALL,JSC(3),ISCW, state
+      COMMON /DIAGNL/IDIAG,JA,JB
+      POINTER  (qjptr, jptr(1))
+      pointer (qcn_g, cn_g(1)) ,(qinptr_g, inptr_g(1))
+      COMMON /fout/ncoff,ntot,idum(6),nrec(8),iflag,lij,nij,qjptr,cf_tot
+      POINTER(QNOC,NOCCSH(1)),(QNELCSH,NELCSH(8,1)),
+     :       (QNOCORB,NOCORB(8,1)),(QJ1,J1QNRD(15,1))
+      POINTER(QIAJCMP,IAJCMP(1)),(QLJCOMP,LJCOMP(1)),
+     :       (QNJCOMP,NJCOMP(1)),(QIAJCLD,IAJCLD(1)),
+     :       (QLJCLSD,LJCLSD(1))
+      COMMON /NDIMS/ QNOC,QNELCSH,QNOCORB,QJ1,NCFG, nlines, endc
+      COMMON /NON30/ QIAJCMP,QNJCOMP,QLJCOMP,QIAJCLD,QLJCLSD,MAXORB
+      COMMON /CLOSED/B1ELC(4),NCLOSD,IBK
+      COMMON /OPERAT/ ICOLOM,ISOTOP,IORBORB
+      DIMENSION noint(4)
+      POINTER (qltused,ltused(1))
+      logical ltused
+      INTEGER NBsize(NBD), n_sum
+*      REAL TIME(2), ETIME, ELAPSE
+      LOGICAL lused, yclist, endc 
+      Character*72 string
+      CHARACTER LINE*72, EL(NWD)*3
+      character*3 term
+      character*5 su 
+      integer l_clist
+
+      CHARACTER*16 INPUT
+      EXTERNAL INITT
+
+    1 FORMAT(//' IOUT =  FGR.LST (OUTPUT FILE)'/
+     :         ' IBUG1  =',I3,' (DEBUG IN WEIGHTS OF 1-EL PART)'/
+     :         ' IBUG2  =',I3,' (DEBUG IN WEIGHTS OF 2-EL PART)'/
+     :         ' IBUG3  =',I3,' (DEBUG IN RECOUPLING PACKAGE)'//)
+*
+    2 FORMAT(///20X,'   ==============================='/
+     :            20X,'         S N O N H_M P I   2000',/
+     :            20X,'   ==============================='//)
+  3   FORMAT(A30,I3,I4,I6,I8,I8,I8,2x,a5)
+
+* ...  THE FOLLOWING SECTION CONCERNS INPUT/OUTPUT AND MAY BE
+*      SYSTEM DEPENDENT.  CHECK ALLOWED UNIT NUMBERS AND
+*      FILE NAME CONVENTIONS - MODIFY, IF NECESSARY.
+
+      call MPI_INIT(ierr)
+      call MPI_COMM_RANK(MPI_COMM_WORLD, myid, ierr) 
+      call MPI_COMM_SIZE(MPI_COMM_WORLD, nprocs, ierr)
+      timing(1) = MPI_WTIME()
+ 
+      write(idstring,'(I2.2)') myid
+      input = 'clist'
+
+      su = 'snonh'
+      i = iargc()
+      if (i .eq. 0) then
+         INPUT = 'clist'
+         inquire( FILE=input, exist=yclist)
+         if (yclist) then
+            write (iscw,*) 'input file is clist ...'
+         else
+            write (iscw,*) 'clist not found: nonh is exiting!...'
+            call exit(0)
+          endif
+       end if
+
+      IREAD=4
+      IOUT=8
+
+      if (myid.eq.0) then
+         ISCW = 0
+         IWRITE = 6
+      else
+         iscw = 40
+         iwrite = 40
+      end if
+
+      WRITE(IWRITE,2)
+      write(iscw,'(A,i4,A)') 
+     :      '                 ...snonh_mpi running on ',
+     :                  nprocs,' processors...'
+      write(iscw,*)
+
+
+*>>>>>>>> specify files for input output >>>>>>>>>>>>>>>>>
+      call getwd(myid,mpi_dir,lmpi_dir,p_name,lpn)
+      mpi_dir = trim(mpi_dir)
+      serr = getcwd(cwd)
+      lcwd = len_trim(cwd)
+
+      if (serr.ne.0) then
+         print*, 'couldn''t get the current directory, exiting...'
+         call exit(23);
+      end if
+
+!      file_c = mpi_dir(1:lmpi_dir)//'/c.lst.'//p_name(1:lpn)
+!      file_y = mpi_dir(1:lmpi_dir)//'/yint.lst.'//p_name(1:lpn)
+      file_c = mpi_dir(1:lmpi_dir)//'/c.lst.'//idstring
+      file_y = mpi_dir(1:lmpi_dir)//'/yint.lst.'//idstring
+      file_cl = cwd(1:lcwd)//'/clist'
+      file_cfg = cwd(1:lcwd)//'/cfg.h'
+      llc = len_trim(file_c)
+      lly = len_trim(file_y)
+      llcl = len_trim(file_cl)
+      llcf = len_trim(file_cfg)
+
+      open(unit=39,file=file_c(1:llc),status='unknown',
+     :     form='unformatted');
+      serr = chmod(file_c(1:llc),511)
+      if (serr.ne.0) print *, 'can''t chmod to 4777 of', file_c
+      open(unit=38,file=file_y(1:lly),status='unknown',
+     :     form='unformatted');
+      serr = chmod(file_y(1:lly),511)
+      if (serr.ne.0) print *, 'can''t chmod to 4777 of', file_y
+      OPEN(UNIT=IREAD,FILE=file_cl(1:llcl),STATUS='UNKNOWN')
+      if (myid == 0) then
+         OPEN(UNIT=25,FILE=file_cfg(1:llcf),STATUS='UNKNOWN')
+      end if
+       
+*>>>>>>>>>>>> end files <<<<<<<<<<<<<<<<<<<<<<<<<<
+*
+*     ... END OF MACHINE DEPENDENT SECTION
+*
+
+      ICOLOM=1
+      ISOTOP=0
+      IORBORB=0
+      IBUG1 = 0
+      IBUG2 = 0
+      IBUG3 = 0
+      ist=0
+      IFIRST = 0
+      IALL = 1
+
+*
+*  ---  Determine input data; non-orthogonal case
+*
+      call inita
+      call analy_blk(IREAD,IWRITE,NCLOSD,MAXORB,NB,NBsize,EL)
+      call orbitals(maxorb,el,qiajcmp,qljcomp,
+     :                    qnjcomp,qiajcld,qljclsd,nb)
+
+*  ..   find maximum l-value
+      lmax = 0
+      do i=1,maxorb
+         lmax = max (lmax,ljcomp(i))
+      end do
+
+*  .. allocate memory for buffered i/o
+
+      call alloc(qcn,lsdim,8)
+      call alloc(qinptr,lsdim,4)
+      call alloc(qnijptr,lsdim,4)
+      call alloc(qjan,lsdim,4)
+      call alloc(qjbn,lsdim,4)
+      call alloc(qico,lsdim,4)
+
+*  .. generate list of integrals
+
+      call genint(maxorb,lmax,qljcomp,qintptr,qpackn,qlused,noint,iscw)
+
+*  .. initialize lused
+      lused(1:noint(4)) = .FALSE.
+
+*  .. write global information to cfg.inp
+      nint = noint(4)
+
+      if (myid==0) then
+      write(25, '(I3,2I8,3x,A5)') nb, nint, lsdim, su
+      end if
+
+      rewind (iread)
+      call MPI_BARRIER(MPI_COMM_WORLD,ierr)
+      timing(2) = MPI_WTIME() 
+      ncfg_total = sum(NBsize)
+      allocate (proc_ncoff(NB*nprocs));
+      proc_ncoff = 0;
+      max_buffer = 0
+      cf_tot = 0
+*  .. for all blocks
+      do NLB = 1, NB
+         ncfg = NBsize(NLB)
+         NEW = NCFG
+         NZERO = NCFG
+         nrec = 0
+         cf_tot = 0
+*     .. allocate memory for this block
+         call alloc(qnoc,ncfg,4)
+         call alloc(qnelcsh,8*ncfg,4)
+         call alloc(qnocorb,8*ncfg,4)
+         call alloc(qj1,15*ncfg,4)
+         call alloc(qjptr,ncfg,4)
+
+*        read CFG's for this block
+         CALL CFGBLK(ncfg,maxorb,QIAJCMP,QLJCOMP,QNJCOMP,QNOC,
+     :                  QNELCSH,QNOCORB,QJ1,QIAJCLD,QLJCLSD,term)
+        write(iscw,'(A,A,A,i8,A)')'processing ',term,' with ',
+     :                            ncfg,' configurations'
+*
+*        Initialize parameters for output
+*
+         lij = 0; nij = 0; mycol = 0; ntot = 0; ncoff = 0;
+         n_start = 1; nj_start = 1; nij_tot = 0; njptr_start = 1;
+         ntot_tot = 0;
+         
+*        ... create communicator for the last ncfg_last 
+         ncfg_last = modulo(ncfg,nprocs)
+         if (myid < ncfg_last) then
+            new_s = 1
+         else
+            new_s = 0 
+         end  if
+!         call MPI_COMM_SPLIT(group_L,new_s,myid,comm_last,ierr)
+!         call MPI_COMM_SIZE(comm_last,nsize,ierr )
+!         call MPI_COMM_RANK(comm_last,new_id,ierr)
+
+*        ... allocate memeory for buffered output
+         if (myid==0) then
+           call alloc(qcn_g,lsdim,8)
+           allocate(nij_buff(ncfg))
+           nij_buff = 0
+         end if
+
+         ncfg_left = ncfg
+         f_out = .false.
+
+         do jb = myid+1,ncfg,nprocs
+           if (mod(jb,100) .eq. 0) write(0,*) '   jb =',jb
+           if (jb > (ncfg-nprocs)) f_out = .true.
+           if (ncfg_left >=  nprocs) then
+              working_procs = MPI_COMM_WORLD 
+              npw = nprocs - 1 
+           else 
+!              working_procs = comm_last !new_group !group_L
+              working_procs = MPI_COMM_WORLD
+              npw = ncfg_last - 1
+           end if 
+          
+           CALL SHELLSJB(jb)
+           CALL ANGMOMG(NEW,NZERO,IFIRST)
+
+           if (myid < ncfg_left) then
+             call MPI_SEND(lij,1,MPI_INTEGER,0,94,working_procs,ierr)
+             call MPI_SEND(nij,1,MPI_INTEGER,0,97,working_procs,ierr)
+           end if
+
+           mycol = mycol + 1
+           jptr(mycol) = nij
+           ncfg_left = ncfg_left - nprocs
+         end do
+      call mpi_barrier(MPI_COMM_WORLD,ierr)
+*>>>>
+      call MPI_Reduce(nij,nij_tot,1,MPI_INTEGER,MPI_MAX,0,
+     :                 MPI_COMM_WORLD,ierr)
+
+*>>>>>
+*     .. finish writing the coefficient data, if non empty arrays
+*      ..... write jptr contained in nij_buff
+
+       write(38) lij,(jan(i),i=1,lij), (ico(i),i=1,lij)
+*       if (myid == 0) then
+*          print*, lij,(jan(i),i=1,lij), (ico(i),i=1,lij)
+*       endif
+       write(38) mycol,(jptr(i),i=1,mycol)
+*>>>>
+        if (ncoff.eq.lsdim) then
+           write(39) lsdim,(cn(j),j=1,lsdim),(inptr(j),j=1,lsdim)
+           cf_tot = cf_tot + lsdim
+           ncoff=0
+           cn(ncoff)=0
+           inptr(ncoff)=0
+	 else 
+            cf_tot = cf_tot + ncoff
+         end if
+         write(39) ncoff, (cn(j),j=1,ncoff),(inptr(j),j=1,ncoff)
+*         if (myid == 0) then
+*            print*, ncoff, (cn(j),j=1,ncoff),(inptr(j),j=1,ncoff) 
+*         end if
+      call MPI_GATHER(cf_tot,1,MPI_INTEGER,
+     :                 proc_ncoff(((NLB-1)*nprocs)+myid+1),
+     :                 1,MPI_INTEGER, 0, MPI_COMM_WORLD,ierr)
+
+*>>>>
+
+      timing(3) = MPI_WTIME()
+*     .. deallocate memory for buffered i/o
+
+      nf = nrec(1)
+      ng = nrec(2)
+      nr = nrec(3)
+      nl = nrec(4)
+
+      call mpi_barrier(MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(nf,itot_nf,1,MPI_INTEGER,MPI_SUM,0,
+     :                 MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(ng,itot_ng,1,MPI_INTEGER,MPI_SUM,0,
+     :                 MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(nr,itot_nr,1,MPI_INTEGER,MPI_SUM,0,
+     :                 MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(nl,itot_nl,1,MPI_INTEGER,MPI_SUM,0,
+     :                 MPI_COMM_WORLD,ierr)
+
+      ITOTAL = NF+NG+NR+NL
+      itot_tot = itot_nf+itot_ng+itot_nr+itot_nl
+      write(iscw,220) nij_tot,itot_nf,itot_ng,itot_nr,itot_nl,itot_tot
+  220 FORMAT( I8, ' non-zero matrix elements'/
+     :      I8,' NF',I8,' NG',I8,' NR',I8,' NL'/
+     :       I8,' Total number of integrals')
+
+*    .. write block information to cfg.inp
+      if(myid == 0) then
+         write(25,'(3x,A3,I8,I8,i20)') term, ncfg, nij_tot
+      end if 
+
+         call dalloc(qnoc,ncfg)
+         call dalloc(qnelcsh,8*ncfg)
+         call dalloc(qnocorb,8*ncfg)
+         call dalloc(qj1,15*ncfg)
+         if (myid == 0) deallocate(nij_buff)
+      end do
+*    ..end loop on all blocks
+     
+      if (myid == 0) then
+        do ix1 = 1, NB
+          write(25,'(A6,i3)') "Block ", ix1
+          do ix2 = 1, nprocs
+            write(25,'(i20)') proc_ncoff(((ix1-1)*nprocs)+ix2)
+          end do 
+        end do
+      end if
+
+       call alloc(qltused,noint(4),4)
+       ltused(1:noint(4)) = .false.
+
+      call MPI_ALLREDUCE(lused,ltused,noint(4),MPI_LOGICAL,MPI_LOR,
+     :                MPI_COMM_WORLD,ierr)
+
+*      if (myid == 0) then
+        iscase = 1
+        do icase=1,4
+          write(38) icase,noint(icase)
+          write(38) (ipackn(i),i=iscase,noint(icase)),
+     :               (ltused(i),i=iscase,noint(icase))
+          iscase = noint(icase) + 1
+        end do
+*      end if
+
+*     .. end the processing
+      call dalloc(qljclsd,nwcd)
+      call dalloc(qpackn,noint)
+      call dalloc(qintptr,2*lmax+1)
+      call dalloc(qcn,lsdim)
+      call dalloc(qinptr,lsdim)
+      call dalloc(qnijptr,lsdim)
+      call dalloc(qjan,lsdim)
+      call dalloc(qjbn,lsdim)
+      call dalloc(qico,lsdim)
+      call dalloc(qnjcomp,nwfd)
+      call dalloc(qljcomp,nwfd)
+      deallocate (proc_ncoff)
+
+*      elapse = etime(time)
+*      elapse = etime_(time)
+*6     write(iscw,'(//A/A//A,F8.3,A//)') ' END OF CASE',' ===========',
+*     :      ' Total CPU time was ', TIME(1)/60, ' minutes'
+
+      write (iscw,*)  'end-of-file clist!!!'
+      endfile 25
+      if (myid == 0) then
+        close(50)
+        close(8)
+      end if
+      close(39)
+      close(38)
+      close(unit=25)
+      close(unit=39)
+      call MPI_BARRIER(MPI_COMM_WORLD,ierr)
+      timing(4) = MPI_WTIME()
+*      write(iscw,*) 'time 1= ', timing(2)-timing(1)
+*      write(iscw,*) 'time 2= ', timing(3)-timing(2)
+*      write(iscw,*) 'time 3= ', timing(4)-timing(3) 
+*      write(iscw,*) 'the time per 1 cfg =',   
+*     :                (timing(4)-timing(1))/ncfg_total
+*      write(iscw,*) 'total =', (timing(4)-timing(1))
+      call MPI_FINALIZE(ierr)
+
+      END PROGRAM SNONH
+*
+*------------------------------------------------------------------------
+*        S A V E
+*------------------------------------------------------------------------
+*
+      SUBROUTINE SAVELS(ICASE,C,K,I1,I2,I3,I4,JA,JB,IPTR)
+      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+*
+      PARAMETER (LSDIM=30000)
+      POINTER (qcn,cn(lsdim)),(qinptr,inptr(lsdim)),
+     :        (qnijptr,nijptr(lsdim)),(qjan,jan(lsdim)),
+     :        (qjbn,jbn(lsdim)),(qintptr,intptr(0:2*lmax,4)),
+     :        (qpackn,ipackn(1)),(qlused,lused(1)),(qico,ico(1))
+      COMMON /buffer/qcn,qinptr,qpackn,qlused,qintptr,lmax,qnijptr,
+     :               qjan,qjbn,qico
+      POINTER  (qjptr, jptr(1))
+      COMMON /fout/n,ntot,idum(6),nrec(8),iflag,lij,nij,qjptr,cf_tot
+      COMMON/INFORM/IREAD,IWRITE,IOUT,ISC(4),IALL,JSC(3),ISCW
+      integer cf_tot
+      LOGICAL lused
+*
+      if (n .eq. LSDIM) then
+*        .. write data to disk
+         new = n
+         write(39) new, (cn(j),j=1,new),(inptr(j),j=1,new)
+         n = 1
+	 cf_tot = cf_tot + new;
+      else
+         n = n + 1
+      end if
+
+      nrec(icase) = nrec(icase) + 1
+      ntot = ntot + 1
+
+      IF (icase .LE. 2 .or. icase .eq. 4 ) THEN
+         IF (I2 .GT. I4) THEN
+            II2 = I4
+            II4 = I2
+         ELSE
+            II2 = I2
+            II4 = I4
+         END IF
+         IPACK = (K*64 + II2)*64 + II4
+         CN(n) = C
+         INPTR(n) = isearch(icase,ipack,qpackn,qlused,qintptr,lmax)
+         nijptr(n) = nij + 1
+      ELSE 
+c@
+c@     Rk data
+c@
+         J = 1
+         IMIN = I1
+         IF (I2 .LT. IMIN) THEN
+            IMIN=I2
+            J = 2
+         END IF
+         IF (I3 .LT. IMIN) THEN
+            IMIN = I3
+            J = 3
+         END IF
+         IF (I4 .LT. IMIN) THEN
+            IMIN = I4
+            J = 4
+         END IF
+         GO TO (10,20,30,40) J
+10       II1 = I1
+         II2 = I2
+         II3 = I3
+         II4 = I4
+         Go to 50
+        
+20       II1 = I2
+         II2 = I1
+         II3 = I4
+         II4 = I3
+         GO TO 50
+
+30       II1 = I3
+         II2 = I4
+         II3 = I1
+         II4 = I2
+         GO TO 50
+
+40       II1 = I4
+         II2 = I3
+         II3 = I2
+         II4 = I1
+
+50       IPACK = (((K*64+II1)*64+II2)*64+II3)*64+II4
+         CN(n) = C
+         INPTR(n) = isearch(icase,ipack,qpackn,qlused,qintptr,lmax)
+         NIJPTR(n) = nij + 1
+      END IF
+
+      IFLAG = 1
+      END
+

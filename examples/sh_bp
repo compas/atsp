@@ -1,0 +1,49 @@
+
+set -x
+parity=e
+grp=1
+n=5
+for z in 14 15
+do
+for LS in 1S 1D 3P
+          do
+     cp ../files_c/e1.bp-5.c  ${LS}_${z}_${n}.c
+     cp ../e1/${parity}${grp}.${z}_${n}_${LS}.w  ${LS}_${z}_${n}.w
+done
+bpci_d << end1
+1S_${z}_${n}, y, n
+
+
+0, 0
+2
+2
+y
+y
+y
+end1
+bpci_d << end2
+3P_${z}_${n}, y, n
+
+
+4, 0
+1
+1
+1
+2
+y
+y
+y
+end2
+bpci_d << end3
+1D_${z}_${n}, y, n
+
+
+4, 4
+2
+2
+y
+y
+y
+end3
+done
+rm *.lst

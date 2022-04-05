@@ -1,0 +1,66 @@
+1
+
+
+         HARTREE-FOCK WAVE FUNCTIONS FOR  at    av     Z = 24.0
+
+              Core =  1s(   2)  2s(   2)
+     Configuration =  2p(   5)                                        
+
+
+         INPUT DATA
+         ----- ----
+
+             WAVE FUNCTION  PROCEDURE
+                 NL  SIGMA METH ACC OPT
+
+
+
+       1   1s  1  0    1.0   1 0.0  -1
+       2   2s  2  0    3.0   1 0.0  -1
+       3   2p  2  1    6.0   1 0.0  -1
+
+
+
+        INITIAL ESTIMATES 
+
+          NL    SIGMA      E(NL)    AZ(NL)    FUNCTIONS
+
+
+          1s     1.00    477.675   230.642    SCALED 2Po   2Po       
+          2s     3.00     85.941    70.416    SCALED 2Po   2Po       
+          2p     6.00     78.810   429.039    SCALED 2Po   2Po       
+
+      LEAST SELF-CONSISTENT FUNCTION IS  2p :WEIGHTED MAXIMUM CHANGE =  3.96D-03
+
+      LEAST SELF-CONSISTENT FUNCTION IS  2p :WEIGHTED MAXIMUM CHANGE =  5.51D-04
+
+      LEAST SELF-CONSISTENT FUNCTION IS  2s :WEIGHTED MAXIMUM CHANGE =  7.84D-07
+
+      LEAST SELF-CONSISTENT FUNCTION IS  2p :WEIGHTED MAXIMUM CHANGE =  1.68D-07
+
+
+          NUMBER OF FUNCTIONS ITERATED          =     3
+          MAXIMUM WEIGHTED CHANGE IN FUNCTIONS  =  0.18D-07
+
+
+
+
+                        ATOM at       TERM av    
+
+  nl       E(nl)        I(nl)       KE(nl)        Rel(nl)   S(nl)       Az(nl)
+  1s   481.1955540  -287.877266   277.474371    -2.042417   0.572    230.711289
+  2s    87.9865619   -70.738730    52.981704    -0.459955   3.012     70.979999
+  2p    81.0217694   -70.248313    51.838580    -0.185477   4.013    436.390108
+
+
+  nl      Delta(R)     1/R**3       1/R         R        R**2
+  1s      4235.726       0.0000   23.55632   0.06403    0.00549
+  2s       400.924       0.0000    5.15502   0.28588    0.09591
+  2p         0.000     376.4919    5.08695   0.25016    0.07620
+
+
+     TOTAL ENERGY (a.u.)
+     ----- ------
+           Non-Relativistic     -920.10504824    Kinetic      920.10504780
+           Relativistic Shift     -5.81133963    Potential  -1840.21009604
+           Relativistic         -925.91638787    Ratio        -2.000000000

@@ -1,0 +1,43 @@
+#!/bin/bash
+for z in 22 23 24
+do
+hf << end1
+at,av,${z}
+  1s  2s
+2p(5)
+all
+y
+y
+n
+n
+end1
+cp  wfn.out 2Po-hf-${z}.w
+cp hf.log 2Po-hf-${z}.log
+mv wfn.out wfn.inp
+for i in   3 4 5  
+do
+cp ${i}.c cfg.inp
+nonh << end2
+end2
+mchf >> mchf-${z}.out << end3
+2Po, ${z}.
+1,1
+all
+1s 2s 2p
+y
+n
+y
+n
+.f.,1.e-25,1.e-25
+n
+1000,0
+y
+end3
+cp wfn.out wfn.inp
+save 2Po-${i}-${z}
+mv 2Po.l 2Po-${i}-${z}.l
+done
+done
+rm *.lst cfg.h fort.* wfn.inp   hf.log
+
+

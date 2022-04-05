@@ -1,0 +1,31 @@
+
+#    Example:  forbidden transitions in Si-like 3s(2)3p(2) in LS
+
+#  1.  Generate the expansion files in directory files_c.
+
+mkdir files_c
+cd files_c
+#      1.a   Generate an mrlist  (SD of the complex)
+              .././sh_mrlist_e1
+
+#      1.b   Generate expansions for n=4,5,6,.. using lsreduce
+             .././sh_e1
+
+cd ..
+
+#   2.  Generate MCHF wavefunctions for Z=9,10,...
+mkdir e1
+cd e1
+
+#        2.1  Perform hf calculations for starting values and the core
+       	    .././sh_hf       
+
+#        2.2  Perform MCHF calculations
+            .././sh_mchf
+cd ..
+
+#   3. Compute transitions in LS and place results in a tr directory
+mkdir tr_ls
+cd tr_ls
+           .././sh_tr_ls
+

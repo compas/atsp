@@ -1,0 +1,39 @@
+set -x
+parity=e
+grp=1
+
+#####
+for z in 14 15
+do
+     for LS in 1S 1D 3P
+          do
+               for n in  4 5    
+                      do
+       cp ../files_c/${LS}${parity}${grp}.$n.c cfg.inp
+
+nonh
+
+previous_n=`expr $n - 1`;
+cp  ${parity}${grp}.${z}_${previous_n}.w wfn.inp
+
+mchf << EOF  > mchf_out.${z}_${n}
+${LS},${z}.
+1,1
+all
+1s 2s 2p 3s 3p
+y
+n
+y
+n
+.f.,1.e-9,1.e-9
+n
+500,0
+y
+EOF
+mv wfn.out  ${parity}${grp}.${z}_${n}_${LS}.w
+mv summry   ${parity}${grp}.${z}_${n}_${LS}.s
+mv ${LS}${parity}.l  ${parity}${grp}.${z}_${n}_${LS}.l
+                     done 
+          done
+done
+rm cfg.* fort* *.lst wfn.inp

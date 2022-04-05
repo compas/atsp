@@ -1,0 +1,38 @@
+
+set -x
+
+I=1De1
+F=1Se1
+
+
+for z in 14 15 # 16 17 18 19 20 21 22 23 24 25 26
+do
+
+  for n in   4 5 
+  do
+     cp ../files_c/${I}.${n}.c I.c
+     cp ../files_c/${F}.${n}.c F.c
+	
+	cp ../e1/e1.${z}_${n}_1D.l  I.l
+	cp ../e1/e1.${z}_${n}_1D.w  I.w
+	cp ../e1/e1.${z}_${n}_1S.l  F.l
+	cp ../e1/e1.${z}_${n}_1S.w  F.w
+        
+biotr << end > tr_ls_out
+I
+F
+n
+n
+c
+E2
+*
+end
+mv I.F.ls ${I}.${F}.${z}_${n}.ls 
+      
+ done
+done
+rm fort*  I.* F.*
+# Determine trends
+LS_trends <<IN
+Si
+IN

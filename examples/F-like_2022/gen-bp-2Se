@@ -1,0 +1,32 @@
+#!/bin/bash
+
+lmax[3]=d
+lmax[4]=f
+lmax[5]=g
+
+for i in  3 4 5  
+do
+lsgen << end
+
+b
+
+${i}
+${lmax[${i}]}
+
+
+2
+2
+1
+6
+1
+1
+9
+1
+
+
+2
+
+end
+mv clist.out 2Se-${i}-bp.c
+done
+rm clist.*	

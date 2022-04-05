@@ -1,0 +1,27 @@
+#!/bin/bash
+
+mkdir gs
+
+mkdir es
+
+cd gs
+
+mkdir MCHF
+
+cd MCHF	
+
+          ../.././gen-2Po   # generate mchf expansion for ground state
+
+          ../.././wf-mchf-2Po # hf and mchf calculation for ground state
+
+cd ../../es
+
+cd es
+
+mkdir MCHF
+
+cd MCHF
+
+../.././gen-2Se  # generate mchf expansion for excited state
+
+../.././wf-mchf-2Se # hf and mchf calculation for excited  state

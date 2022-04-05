@@ -1,0 +1,47 @@
+set -x
+n=5
+l=g
+lsgen << EOF
+
+B
+
+${n}
+${l}
+n
+
+3
+2
+i
+2
+i
+6
+i
+2
+
+2
+
+0
+
+
+
+
+
+
+
+
+
+
+
+
+
+4
+0
+3
+1
+D
+S
+2
+
+EOF
+mv clist.out e1.bp-${n}.c
+rm clist.*

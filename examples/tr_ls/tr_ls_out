@@ -1,0 +1,575 @@
+
+
+
+                    ========================
+                      T R A N S B I O  99 
+                    ========================
+
+
+  qiajcmp: nwfd =           12
+  qljcomp: nwfd =           12
+  qnjcomp: nwfd =           12
+  qnoc: ncfg =          916
+  qnelcsh: 8*ncfg =         7328
+  qnocorb: 8*ncfg =         7328
+  qj1    : 15*ncfg =        13740
+  qiajcld: nwcd =           20
+  qljclsd: nwcd =           20
+
+
+ STATE  (WITH     916 CONGIGURATIONS):
+ ------------------------------------
+
+
+ THERE ARE 12 ORBITALS AS FOLLOWS:
+
+       3s  3p  3d  4s  4p  4d  4f  5s  5p  5d  5f  5g
+
+ THERE ARE  3 CLOSED SUBSHELLS COMMON TO ALL CONFIGURATIONS AS FOLLOWS:
+
+       1s  2s  2p
+  alloc, qiorth: nwf*(nwf-1)/2 =           66
+  NCFG =          916
+  dalloc, qiorth: nwf*(nwf-1)/2 =           66
+  dalloc, qnoc: ncfg =          916
+  dalloc, qnelcsh: 8*ncfg =         7328
+  dalloc, qnocorb: 8*ncfg =         7328
+  dalloc, qj1    :15*ncfg =        13740
+  dalloc, qljclcd: nwcd =           20
+  ik =            1  maxorb =           12
+       njcomp =            3
+       ljcomp =            0
+  Initial Orbital n l           3           0
+  Initial Orbital n l           3           1
+  Initial Orbital n l           3           2
+  Initial Orbital n l           4           0
+  Initial Orbital n l           4           1
+  Initial Orbital n l           4           2
+  Initial Orbital n l           4           3
+  Initial Orbital n l           5           0
+  Initial Orbital n l           5           1
+  Initial Orbital n l           5           2
+  Initial Orbital n l           5           3
+  Initial Orbital n l           5           4
+  l =            0  i =            1  lq(i) =            0  nq(i) =            3
+  l =            0  i =            4  lq(i) =            0  nq(i) =            4
+  l =            0  i =            8  lq(i) =            0  nq(i) =            5
+  l =            1  i =            2  lq(i) =            1  nq(i) =            3
+  l =            1  i =            5  lq(i) =            1  nq(i) =            4
+  l =            1  i =            9  lq(i) =            1  nq(i) =            5
+  l =            2  i =            3  lq(i) =            2  nq(i) =            3
+  l =            2  i =            6  lq(i) =            2  nq(i) =            4
+  l =            2  i =           10  lq(i) =            2  nq(i) =            5
+  l =            3  i =            7  lq(i) =            3  nq(i) =            4
+  l =            3  i =           11  lq(i) =            3  nq(i) =            5
+  l =            4  i =           12  lq(i) =            4  nq(i) =            5
+
+  rscheck report: Congratulations: RAS test satisfied.
+
+  dalloc, qnjcomp: maxorb =           12
+  dalloc, qljcomp: maxorb =           12
+  qiajcmp: nwfd =           12
+  qljcomp: nwfd =           12
+  qnjcomp: nwfd =           12
+  qnoc: ncfg =          298
+  qnelcsh: 8*ncfg =         2384
+  qnocorb: 8*ncfg =         2384
+  qj1    : 15*ncfg =         4470
+  qiajcld: nwcd =           20
+  qljclsd: nwcd =           20
+
+
+ STATE  (WITH     298 CONGIGURATIONS):
+ ------------------------------------
+
+
+ THERE ARE 12 ORBITALS AS FOLLOWS:
+
+       3s  3p  3d  4s  4p  4d  4f  5s  5p  5d  5f  5g
+
+ THERE ARE  3 CLOSED SUBSHELLS COMMON TO ALL CONFIGURATIONS AS FOLLOWS:
+
+       1s  2s  2p
+  alloc, qiorth: nwf*(nwf-1)/2 =           66
+  NCFG =          298
+  dalloc, qiorth: nwf*(nwf-1)/2 =           66
+  dalloc, qnoc: ncfg =          298
+  dalloc, qnelcsh: 8*ncfg =         2384
+  dalloc, qnocorb: 8*ncfg =         2384
+  dalloc, qj1    :15*ncfg =         4470
+  dalloc, qljclcd: nwcd =           20
+  ik =            2  maxorb =           12
+       njcomp =            3
+       ljcomp =            0
+  Final   Orbital n l           3           0
+  Final   Orbital n l           3           1
+  Final   Orbital n l           3           2
+  Final   Orbital n l           4           0
+  Final   Orbital n l           4           1
+  Final   Orbital n l           4           2
+  Final   Orbital n l           4           3
+  Final   Orbital n l           5           0
+  Final   Orbital n l           5           1
+  Final   Orbital n l           5           2
+  Final   Orbital n l           5           3
+  Final   Orbital n l           5           4
+  l =            0  i =            1  lq(i) =            0  nq(i) =            3
+  l =            0  i =            4  lq(i) =            0  nq(i) =            4
+  l =            0  i =            8  lq(i) =            0  nq(i) =            5
+  l =            1  i =            2  lq(i) =            1  nq(i) =            3
+  l =            1  i =            5  lq(i) =            1  nq(i) =            4
+  l =            1  i =            9  lq(i) =            1  nq(i) =            5
+  l =            2  i =            3  lq(i) =            2  nq(i) =            3
+  l =            2  i =            6  lq(i) =            2  nq(i) =            4
+  l =            2  i =           10  lq(i) =            2  nq(i) =            5
+  l =            3  i =            7  lq(i) =            3  nq(i) =            4
+  l =            3  i =           11  lq(i) =            3  nq(i) =            5
+  l =            4  i =           12  lq(i) =            4  nq(i) =            5
+
+  rscheck report: Congratulations: RAS test satisfied.
+
+  dalloc, qnjcomp: maxorb =           12
+  dalloc, qljcomp: maxorb =           12
+Initial State : 
+-------------
+
+   closed shells: 
+   1s  2s  2p
+   open shells: 
+   3s  3p  4p  4f  5p  5f  3d  4s  4d  5s  5d  5g
+
+Final   State : 
+-------------
+
+   closed shells: 
+   1s  2s  2p
+   open shells: 
+   3s  3p  4p  5p  3d  4d  5d  4s  5s  4f  5f  5g
+
+  total number of radial distributions =           30
+  total number of initial orbitals     =           15
+  total number of final   orbitals     =           15
+
+ The following biorthonormal set is built for TENSOR:
+   3s  3p  3d  4s  4p  4d  4f  5s  5p  5d  5f  5g
+ ----------------------------  
+
+ ----------------------------  
+
+  RAS-type calculation for initial state: 
+  --------------------------------------: 
+                s    p    d    f    g    h    i    k    l    m    n 
+ inactive :     2    1    0    0    0
+ GAS      :     3    3    3    2    1
+
+  RAS-type calculation for final   state: 
+  --------------------------------------: 
+                s    p    d    f    g    h    i    k    l    m    n 
+ inactive :     2    1    0    0    0
+ GAS      :     3    3    3    2    1
+
+ Number of shells per l for Initial state
+                s    p    d    f    g    h    i    k    l    m    n 
+          :     5    4    3    2    1
+ Number of shells per l for Final   state
+                s    p    d    f    g    h    i    k    l    m    n 
+          :     5    4    3    2    1
+
+ Labels of shells for Initial state
+  inactive:            1 s
+  inactive:            2 s
+    GAS     :            3 s
+    GAS     :            4 s
+    GAS     :            5 s
+  inactive:            2 p
+    GAS     :            3 p
+    GAS     :            4 p
+    GAS     :            5 p
+    GAS     :            3 d
+    GAS     :            4 d
+    GAS     :            5 d
+    GAS     :            4 f
+    GAS     :            5 f
+    GAS     :            5 g
+ Labels of shells for Final   state
+  inactive:            1 s
+  inactive:            2 s
+    GAS     :            3 s
+    GAS     :            4 s
+    GAS     :            5 s
+  inactive:            2 p
+    GAS     :            3 p
+    GAS     :            4 p
+    GAS     :            5 p
+    GAS     :            3 d
+    GAS     :            4 d
+    GAS     :            5 d
+    GAS     :            4 f
+    GAS     :            5 f
+    GAS     :            5 g
+  1s 2s 3s 4s 5s 2p 3p 4p 5p 3d 4d 5d 4f 5f 5g 1s 2s 3s 4s 5s 2p 3p 4p 5p 3d 4d 5d 4f 5f 5g
+  north =            0
+  in readw2, nwf =           30  ncfg =         1214
+  elrasi =  1s 2s 3s 4s 5s 2p 3p 4p 5p 3d 4d 5d 4f 5f 5g
+  elrasf =  1s 2s 3s 4s 5s 2p 3p 4p 5p 3d 4d 5d 4f 5f 5g
+ Initial electron  1s P index =            1
+ Initial electron  2s P index =            2
+ Initial electron  2p P index =            6
+ Initial electron  3s P index =            3
+ Initial electron  3p P index =            7
+ Initial electron  3d P index =           10
+ Initial electron  4s P index =            4
+ Initial electron  4p P index =            8
+ Initial electron  4d P index =           11
+ Initial electron  4f P index =           13
+ Initial electron  5s P index =            5
+ Initial electron  5p P index =            9
+ Initial electron  5d P index =           12
+ Initial electron  5f P index =           14
+ Initial electron  5g P index =           15
+ Final   electron  1s P index =           16
+ Final   electron  2s P index =           17
+ Final   electron  2p P index =           21
+ Final   electron  3s P index =           18
+ Final   electron  3p P index =           22
+ Final   electron  3d P index =           25
+ Final   electron  4s P index =           19
+ Final   electron  4p P index =           23
+ Final   electron  4d P index =           26
+ Final   electron  4f P index =           28
+ Final   electron  5s P index =           20
+ Final   electron  5p P index =           24
+ Final   electron  5d P index =           27
+ Final   electron  5f P index =           29
+ Final   electron  5g P index =           30
+
+
+  Position of biorthonormal shells in P vector : 
+  ---------------------------------------------- 
+ Initial :             3           7          10           4           8          11          13           5           9          12          14          15
+ Final   :            18          22          25          19          23          26          28          20          24          27          29          30
+
+  Rydberg constant used (cm-1) =    109735.37060906566     
+
+ < 1s| 1s> =   0.99999999868997680     
+ < 1s| 2s> =   -2.3304461789399463E-006
+ < 1s| 3s> =   -5.1050413448876773E-005
+ < 1s| 4s> =    9.7473815822489031E-007
+ < 1s| 5s> =   -2.6706704601771888E-006
+ < 2s| 1s> =    2.5454086068884981E-006
+ < 2s| 2s> =   0.99999113226174785     
+ < 2s| 3s> =    4.2111859260617092E-003
+ < 2s| 4s> =    3.2761643564472283E-005
+ < 2s| 5s> =    1.3573056251371901E-005
+ < 3s| 1s> =    5.1056673662685410E-005
+ < 3s| 2s> =   -4.2107678880629919E-003
+ < 3s| 3s> =   0.99994561482781885     
+ < 3s| 4s> =   -8.6512270650860746E-003
+ < 3s| 5s> =    3.9828091088103378E-003
+ < 4s| 1s> =   -2.2337826436595675E-007
+ < 4s| 2s> =   -6.8198402556903407E-005
+ < 4s| 3s> =    8.1347244517592128E-003
+ < 4s| 4s> =   0.99225987419512163     
+ < 4s| 5s> =   0.11818154278367657     
+ < 5s| 1s> =    2.5163850235571170E-006
+ < 5s| 2s> =    1.1400358305871851E-005
+ < 5s| 3s> =   -4.9757453521256526E-003
+ < 5s| 4s> =  -0.11845324298885948     
+ < 5s| 5s> =   0.99291672782723517     
+ < 2p| 2p> =   0.99999985905583522     
+ < 2p| 3p> =    5.2449832394103478E-004
+ < 2p| 4p> =   -7.2425435203210640E-005
+ < 2p| 5p> =   -3.4232874942114968E-005
+ < 3p| 2p> =   -5.2474780105147341E-004
+ < 3p| 3p> =   0.99993836010499382     
+ < 3p| 4p> =    1.6401430874479200E-004
+ < 3p| 5p> =   -9.8728303113917518E-003
+ < 4p| 2p> =    7.3156679581431143E-005
+ < 4p| 3p> =    3.5656480456419372E-004
+ < 4p| 4p> =   0.99885948518680223     
+ < 4p| 5p> =    3.8808748294865525E-002
+ < 5p| 2p> =    2.7009613298571615E-005
+ < 5p| 3p> =    9.6632490971722690E-003
+ < 5p| 4p> =   -3.7592262163701325E-002
+ < 5p| 5p> =   0.99822745084861220     
+ < 3d| 3d> =   0.99811855579627873     
+ < 3d| 4d> =    5.0567051714815993E-002
+ < 3d| 5d> =   -3.4384546153550299E-002
+ < 4d| 3d> =   -5.1026572748139237E-002
+ < 4d| 4d> =   0.99807944620630940     
+ < 4d| 5d> =   -1.7313012585614282E-002
+ < 5d| 3d> =    3.3852459862720854E-002
+ < 5d| 4d> =    1.6354615949405460E-002
+ < 5d| 5d> =   0.99530029001900167     
+ < 4f| 4f> =   0.98614188253885848     
+ < 4f| 5f> =   0.13348198298889624     
+ < 5f| 4f> =  -0.14565446460578879     
+ < 5f| 5f> =   0.98087188469560327     
+ < 5g| 5g> =   0.99986947431981954     
+ j1qnrd           1        4416
+ seniority =           0   2*L+1=           5  2S+1 =           1
+ nc,ncf         917         916
+ j1qnrd         917        4160
+ seniority =           0   2*L+1=           1  2S+1 =           1
+ nc,ncf        1833         916
+ jv1,jv2           4           0
+1
+ ELECTRIC TRANSITION OF ORDER   2
+
+  npair =            1  jvl =            4  jvr =            0
+  TRANS : MXL            4
+  I am going to call BIOTRA, wish me luck
+
+                    *************************
+                    *   Entering BIOTRN     *
+                    * May it bring you luck *
+                    *   and good numbers    *
+                    *************************
+
+  In biotrn: KLPI    =            1
+             KFREE   =         1101
+  In biotrn: KLPF    =         1101
+             KFREE   =         2201
+  In biotrn: KLPIF   =         2201
+             KFREE   =         3301
+  In biotrn: KLSTOT  =         3301
+             KFREE   =         3526
+  In biotrn: KLSIF   =         3526
+             KFREE   =         3551
+  In biotrn: KLSIFI  =         3551
+             KFREE   =         3576
+  In biotrn: KLCI    =         3576
+             KFREE   =         3601
+  In biotrn: KLCF    =         3601
+             KFREE   =         3626
+  In biotrn: KLSCR   =         3626
+             KFREE   =         3681
+  In biotrn: KBUF    =         3681
+             KFREE   =         3682
+  In biotrn: KIBUF   =         3682
+             KFREE   =         3686
+  In biotrn: KLCISC  =         3686
+             KFREE   =         4602
+  In biotrn: KLCIF   =         4602
+             KFREE   =         5518
+              NCSFI  =            916
+              NCII   =              1
+              NCSFF  =            298
+              NCIF   =              1
+          =>  FREE =             5518
+    L =            0
+        Orbital rotation...
+  INVERTED MATRIX 
+0    1   0.10000000E+01 0.25454127E-05 0.51056906E-04 -.23726502E-06
+         0.25131275E-05
+0    2   -.23304422E-05 0.99999113E+00 -.42107650E-02 -.68373383E-04
+         0.11358659E-04
+0    3   -.51050284E-04 0.42111876E-02 0.99994579E+00 0.81238396E-02
+         -.49779989E-02
+0    4   0.96212389E-06 0.32596569E-04 -.86716399E-02 0.99361100E+00
+         -.11822939E+00
+0    5   -.26753552E-05 0.13510401E-04 0.39765063E-02 0.11857678E+00
+         0.99300430E+00
+  INVERTED MATRIX 
+0    1   0.10000000E+01 0.25454086E-05 0.51056674E-04 -.22337826E-06
+         0.25163850E-05
+0    2   0.00000000E+00 0.99999113E+00 -.42107678E-02 -.68198403E-04
+         0.11400364E-04
+0    3   0.00000000E+00 0.00000000E+00 0.99996335E+00 0.81350116E-02
+         -.49757932E-02
+0    4   0.00000000E+00 0.00000000E+00 0.00000000E+00 0.99233026E+00
+         -.11849629E+00
+0    5   0.00000000E+00 0.00000000E+00 0.00000000E+00 0.00000000E+00
+         0.10070450E+01
+  INVERTED MATRIX 
+0    1   0.10000000E+01 -.23304462E-05 -.51050414E-04 0.97473816E-06
+         -.26706705E-05
+0    2   0.00000000E+00 0.10000000E+01 0.42112234E-02 0.32761932E-04
+         0.13573183E-04
+0    3   0.00000000E+00 0.00000000E+00 0.10000000E+01 -.86514062E-02
+         0.39830124E-02
+0    4   0.00000000E+00 0.00000000E+00 0.00000000E+00 0.10000000E+01
+         0.11906232E+00
+0    5   0.00000000E+00 0.00000000E+00 0.00000000E+00 0.00000000E+00
+         0.10000000E+01
+    L =            1
+        Orbital rotation...
+  INVERTED MATRIX 
+0    1   0.99999986E+00 -.52481042E-03 0.73581934E-04 0.26242399E-04
+ 
+0    2   0.52444782E-03 0.99996580E+00 0.20775162E-03 0.98819643E-02
+ 
+0    3   -.72073437E-04 0.19150758E-04 0.99967912E+00 -.38864999E-01
+ 
+0    4   -.34848654E-04 -.96793416E-02 0.37644917E-01 0.10002164E+01
+ 
+  INVERTED MATRIX 
+0    1   0.99999986E+00 -.52474780E-03 0.73156680E-04 0.27009613E-04
+ 
+0    2   0.00000000E+00 0.99993864E+00 0.35652643E-03 0.96632349E-02
+ 
+0    3   0.00000000E+00 0.00000000E+00 0.99885943E+00 -.37593845E-01
+ 
+0    4   0.00000000E+00 0.00000000E+00 0.00000000E+00 0.99978363E+00
+ 
+  INVERTED MATRIX 
+0    1   0.10000000E+01 0.52449840E-03 -.72425445E-04 -.34232880E-04
+ 
+0    2   0.00000000E+00 0.10000000E+01 0.16398637E-03 -.98734542E-02
+ 
+0    3   0.00000000E+00 0.00000000E+00 0.10000000E+01 0.38856590E-01
+ 
+0    4   0.00000000E+00 0.00000000E+00 0.00000000E+00 0.10000000E+01
+ 
+    L =            2
+        Orbital rotation...
+  INVERTED MATRIX 
+0    1   0.99813223E+00 -.51120186E-01 0.33593157E-01
+0    2   0.50426012E-01 0.99905614E+00 0.19120407E-01
+0    3   -.34777373E-01 -.14677616E-01 0.10032651E+01
+  INVERTED MATRIX 
+0    1   0.99811856E+00 -.51026573E-01 0.33852460E-01
+0    2   0.00000000E+00 0.10006646E+01 0.14639570E-01
+0    3   0.00000000E+00 0.00000000E+00 0.99674549E+00
+  INVERTED MATRIX 
+0    1   0.10000000E+01 0.50662370E-01 -.34449361E-01
+0    2   0.00000000E+00 0.10000000E+01 -.19058180E-01
+0    3   0.00000000E+00 0.00000000E+00 0.10000000E+01
+    L =            3
+        Orbital rotation...
+  INVERTED MATRIX 
+0    1   0.99407207E+00 -.13527833E+00
+0    2   0.14761463E+00 0.99941299E+00
+  INVERTED MATRIX 
+0    1   0.98614188E+00 -.14565446E+00
+0    2   0.00000000E+00 0.10005874E+01
+  INVERTED MATRIX 
+0    1   0.10000000E+01 0.13535779E+00
+0    2   0.00000000E+00 0.10000000E+01
+    L =            4
+        Orbital rotation...
+  INVERTED MATRIX 
+0    1   0.10001305E+01
+  INVERTED MATRIX 
+0    1   0.99986947E+00
+  INVERTED MATRIX 
+0    1   0.10000000E+01
+ Test call of BRKT after BIOTRN
+ < 1s| 1s> =   0.99999999999992772     
+ < 1s| 2s> =   -1.2698235898786188E-013
+ < 1s| 3s> =   -2.9185471203888448E-014
+ < 1s| 4s> =   -1.6146727590202745E-012
+ < 1s| 5s> =    2.7097220974028947E-012
+ < 2s| 1s> =   -1.2717135377890662E-013
+ < 2s| 2s> =   0.99999999999993605     
+ < 2s| 3s> =   -1.5716357417245523E-014
+ < 2s| 4s> =   -4.4863170947981703E-013
+ < 2s| 5s> =    7.2168433380369253E-013
+ < 3s| 1s> =   -2.9279022887125208E-014
+ < 3s| 2s> =   -1.5836313676193563E-014
+ < 3s| 3s> =   0.99999999999999611     
+ < 3s| 4s> =   -1.2065764922987412E-013
+ < 3s| 5s> =    1.9563676241943394E-013
+ < 4s| 1s> =    7.1907323760618319E-012
+ < 4s| 2s> =    1.9471867435757051E-012
+ < 4s| 3s> =    5.1933397924459597E-013
+ < 4s| 4s> =    1.0000000000003968     
+ < 4s| 5s> =    1.4300076257309842E-012
+ < 5s| 1s> =    2.4432409090908657E-012
+ < 5s| 2s> =    6.4703051582658722E-013
+ < 5s| 3s> =    1.7318698574470120E-013
+ < 5s| 4s> =   -8.4217571252184021E-014
+ < 5s| 5s> =    1.0000000000008564     
+ < 2p| 2p> =    1.0000000000000000     
+ < 2p| 3p> =    3.8877893490126476E-017
+ < 2p| 4p> =   -4.3272361085105498E-018
+ < 2p| 5p> =   -1.6057820987416511E-017
+ < 3p| 2p> =   -1.2402669708889824E-018
+ < 3p| 3p> =    1.0000000000000000     
+ < 3p| 4p> =    2.1845636353500600E-017
+ < 3p| 5p> =    2.6646224122218862E-018
+ < 4p| 2p> =   -2.4971170308602526E-017
+ < 4p| 3p> =    6.1808558544701095E-017
+ < 4p| 4p> =    1.0000000000000000     
+ < 4p| 5p> =   -4.3209665809725711E-017
+ < 5p| 2p> =    2.9778411163823605E-017
+ < 5p| 3p> =   -4.1060991783314742E-017
+ < 5p| 4p> =    3.8260932903173580E-017
+ < 5p| 5p> =    1.0000000000000000     
+ < 3d| 3d> =    1.0000000000000002     
+ < 3d| 4d> =    1.9679450550417793E-017
+ < 3d| 5d> =   -1.1774498819640612E-017
+ < 4d| 3d> =   -2.5521843905569910E-017
+ < 4d| 4d> =   0.99999999999999978     
+ < 4d| 5d> =    1.6386313153169068E-018
+ < 5d| 3d> =    5.1628717794869350E-018
+ < 5d| 4d> =    1.3860389650885123E-018
+ < 5d| 5d> =    1.0000000000000000     
+ < 4f| 4f> =    1.0000000000000000     
+ < 4f| 5f> =    4.3585423561430247E-017
+ < 5f| 4f> =   -5.9898523228937103E-018
+ < 5f| 5f> =    1.0000000000000000     
+ < 5g| 5g> =    1.0000000000000000     
+  maxorb =           12
+                                          _ 
+ < INITIAL STATE ||E (2)|| FINAL STATE > = >  COEFF * WEIGHT(INITIAL,I) * WEIGHT(FINAL,J) * < NL||E (2)||N'L'>
++                                         _ 
+                                         I,J
+
+
+     COEFF      I    J     < NL||E (2)||N'L'>
+
+
+  npair =            1
+
+
+Entering calcul
+
+
+Exiting calcul
+
+
+
+
+
+                                NUMBER OF TERMS IN THE ABOVE SUMMATION =     10015
+  npair =            1
+
+------------------------------------------------------
+Pair number   1
+
+
+
+ Initial CSF : 3s(2).3p(2)1D2_1D                                  J = 2.0
+ Final   CSF : 3s(2).3p(2)1S0_1S                                  J = 0.0
+
+ 2*j =     4 lbl =     1 total energy =     -340.4039312
+ 2*j =     0 lbl =     1 total energy =     -340.3455476
+
+
+          LENGTH   FORMALISM: 
+          -------- ----------
+
+
+          SL                                       =   4.0557862D+01
+          FINAL OSCILLATOR STRENGTH (GF)           =   1.4326317D-08
+          TRANSITION PROBABILITY IN EMISSION (Aki) =   1.5689620D+00
+
+
+
+
+          VELOCITY FORMALISM: 
+          -------- ----------
+
+
+          SV                                       =   3.8732037D+01
+          FINAL OSCILLATOR STRENGTH (GF)           =   1.3681378D-08
+          TRANSITION PROBABILITY IN EMISSION (Aki) =   1.4983309D+00
+
+
+           LS RESULTS (length   formalism):  S   =   0.405579D+02
+           ----------                        Aki =   0.156896D+01
+                                             gf  =   0.143263D-07
+                      (velocity formalism):  S   =   0.387320D+02
+                                             Aki =   0.149833D+01
+                                             gf  =   0.136814D-07

@@ -1,0 +1,56 @@
+#!/bin/bash
+
+mkdir hyp
+cd hyp
+
+mu[22]=-1.10417
+mu[23]=5.1487057
+mu[24]=-0.47454
+DI[22]=7 #2*I
+DI[23]=7
+DI[24]=3
+
+for z in 22 23 24
+do
+cp ../gs/MCHF/2Po-5-${z}.* .
+cp ../gs/BP/2Po-5-${z}-bp.* .
+cp ../es/MCHF/2Se-5-${z}.* .
+cp ../es/BP/2Se-5-${z}-bp.* .
+hfs << end
+2Po-5-${z}
+n
+0
+c
+n
+1
+${DI[${z}]} ${mu[${z}]} 1.
+end
+hfs << end1
+2Po-5-${z}-bp
+n
+0
+c
+y
+1
+${DI[${z}]} ${mu[${z}]} 1.
+end1
+hfs << end2
+2Se-5-${z}
+n
+0
+c
+n
+7
+${DI[${z}]} ${mu[${z}]} 1.
+end2
+hfs << end3
+2Se-5-${z}-bp
+n
+0
+c
+y
+25
+${DI[${z}]} ${mu[${z}]} 1.
+end3
+done
+rm *.c *.w *.l *.s *.j

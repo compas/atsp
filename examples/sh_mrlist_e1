@@ -1,0 +1,43 @@
+
+set -x
+ 
+parity=e
+grp=1
+for LS in 1S 1D 3P
+do 
+
+(echo
+
+echo 'Making expansion n=4' #---------------------------------------------
+lsgen <<STOP
+ 
+
+ 
+3  # highest n
+d  # highest l
+n
+n
+3
+2
+c
+2
+c
+6
+c
+2 # 3s
+
+2 # 3p
+
+0 # 3d
+
+${LS}
+2
+n
+STOP
+
+mv clist.out mrlist.${LS}${parity}${grp}.c # Includes only CSF's that interact with reference set
+
+)
+done
+rm clist.*
+

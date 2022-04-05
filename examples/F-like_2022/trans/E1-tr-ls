@@ -1,0 +1,27 @@
+#!/bin/bash
+cd E1_trans_ls
+for z in 22 23 24
+do
+        for i in  3 4 5 
+        do 
+        cp ../../gs/MCHF/2Po-${i}-${z}.c .
+        cp ../../gs/MCHF/2Po-${i}-${z}.l .
+        cp ../../gs/MCHF/2Po-${i}-${z}.w .
+        cp ../../es/MCHF/2Se-${i}-${z}.c .
+        cp ../../es/MCHF/2Se-${i}-${z}.l .
+        cp ../../es/MCHF/2Se-${i}-${z}.w .
+biotr << end
+2Po-${i}-${z}
+2Se-${i}-${z}
+n
+n
+c
+E1
+*
+end
+done
+done
+rm fort.* *.c *.w *.l
+LS_trends << end1
+(Ti, V, Cr)
+end1

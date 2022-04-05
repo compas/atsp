@@ -1,0 +1,16 @@
+
+#  Created by R. Sritharan on 16 June 1987
+
+#  Save results of an MCHF calculation using default names
+
+if [ $# -lt 1 ]
+then
+ echo File argument missing
+else
+ mv wfn.out $1.w
+ mv cfg.out $1.c
+ mv summry $1.s
+# mv inv.lst $1.i
+# echo Created $1.w, $1.c and $1.i
+ echo Created $1.w, $1.s, and $1.c
+fi

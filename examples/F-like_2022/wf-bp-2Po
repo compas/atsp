@@ -1,0 +1,27 @@
+#!/bin/bash
+for z in 22 23 24
+do
+    for i in 3 4 5
+    do
+    cp 2Po-${i}-bp.c 2Po-${i}-${z}-bp.c
+    cp ../MCHF/2Po-${i}-${z}.w 2Po-${i}-${z}-bp.w
+
+bpci << end
+2Po-${i}-${z}-bp, y, n
+n
+n
+3 1
+1
+1
+2
+y
+y
+y
+end
+      done
+levels >> fs-5-${z}.out << stop
+2Po-5-${z}-bp.j
+y
+stop
+done
+rm *.lst
