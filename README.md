@@ -1,5 +1,8 @@
-### ATSP - A Multiconfiguration Hartree-Fock (MCHF) Atomic Structure Package 
-This is the official repository for the development of ATSP maintained by the [CompAS](https://github.com/compas) team. Fundamental insight into the approach can be obtained from e.g. Froese Fischer et al.'s book "*Computational Atomic Structure: An MCHF Approach*" [[1]](https://www.crcpress.com/Computational-Atomic-Structure-An-MCHF-Approach/Froese-Fischer-Brage-Johnsson/p/book/9780750304665) or the 2016 review article [[2]](https://doi.org/10.1088/0953-4075/49/18/182004) as well as the latest published version from 2007 [[3]](http://dx.doi.org/10.1016/j.cpc.2007.01.006).
+### ATSP - A Multiconfiguration Hartree-Fock (MCHF) Atomic Structure Package
+
+#### Disclaimer: this is an unstable, development version of ATSP - for the latest stable release we refer you to the most recently published version (ATSP2K [[3])](http://dx.doi.org/10.1016/j.cpc.2007.01.006)]
+
+This is the official repository for the development version of ATSP, maintained by the [CompAS](https://github.com/compas) team. Fundamental insight into the approach can be obtained from e.g. Froese Fischer et al.'s book "*Computational Atomic Structure: An MCHF Approach*" [[1]](https://www.crcpress.com/Computational-Atomic-Structure-An-MCHF-Approach/Froese-Fischer-Brage-Johnsson/p/book/9780750304665) or the 2016 review article [[2]](https://doi.org/10.1088/0953-4075/49/18/182004) as well as the latest published version from 2007 [[3]](http://dx.doi.org/10.1016/j.cpc.2007.01.006).
 
 **ATSP book-version:** For teaching purposes it is convenient to use the somewhat more transparent version of ATSP that was shipped with the MCHF book [[1]](https://www.crcpress.com/Computational-Atomic-Structure-An-MCHF-Approach/Froese-Fischer-Brage-Johnsson/p/book/9780750304665). This code is available and maintained in a separate repository: [compas/atsp-book](https://github.com/compas/atsp-book).
 
